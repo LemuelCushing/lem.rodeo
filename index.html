@@ -1,0 +1,177 @@
+<!doctype html>
+<style>
+  html {
+    /* background: no-repeat center center fixed;  */
+    background: no-repeat center center fixed;
+    -webkit-background-size: auto;
+    -moz-background-size: auto;
+    -o-background-size: auto;
+    background-size: auto;
+  }
+
+  .box {
+    justify-self: center;
+    align-self: center;
+    font-family: monospace;
+    font-size: x-large;
+    backdrop-filter: revert;
+    filter: blur(0.5px);
+    /* opacity: 50%; */
+    padding: 10px 0px;
+  }
+
+  body {
+    display: grid;
+    grid-template-rows: 100vh;
+    grid-template-columns: 100vw;
+  }
+</style>
+
+<body>
+  <div id="quoteBox" class="box" style="margin: 30px; background: white"></div>
+</body>
+
+<script>
+  var image_width = 1024
+  var interval = 10000
+
+  function randomIntFromInterval(min, max) { // min and max included 
+    return Math.floor(Math.random() * (max - min + 1) + min)
+  }
+
+  /*
+   * puzzle together the long wikimedia API query URL
+   */
+  var url = 'http://commons.wikimedia.org/w/api.php'
+  url += '?action=query&generator=random'
+  url += '&grnnamespace=6' // only return images (6)
+  url += '&prop=imageinfo'
+  url += '&iiprop=url'
+  url += '&iiurlwidth=' + randomIntFromInterval(250, 2800)
+  url += '&format=json&callback=processWikimediaJson'
+
+  var image = document.createElement('img')
+  image.onload = function () {
+    document.body.parentNode.style.backgroundImage = 'url(' + image.src + ')'
+  }
+
+  /*
+   * JSONP callback that traverses the JSON and sticks it into the html background CSS 
+   */
+  function processWikimediaJson(json) {
+    var jpg = []
+    for (var id in json.query.pages) {
+      jpg.push(json.query.pages[id].imageinfo[0].thumburl)
+    }
+    image.src = jpg.pop()
+  }
+
+  /*
+   * to circumvent crosssite scripting restrictions we need to insert a script tag
+   * that gets JSONP from wikimedia API. This JSONP is wrapped in a callback, which
+   * we defined above
+   */
+  function getRandomImageJson() {
+    var script = document.createElement('script')
+    script.src = url
+    document.body.appendChild(script)
+    document.body.removeChild(script)
+
+    // loop
+    window.setTimeout(getRandomImageJson, interval)
+  }
+
+  // initial nudge to the loop
+  getRandomImageJson()
+
+  const showQuote = (data) => {
+    console.log(data)
+    const {
+      bookname,
+      chapter,
+      verse,
+      text
+    } = data
+
+    document.getElementById("quoteBox").innerHTML = JSON.stringify(text).slice(1, -1)
+  }
+
+  const sampleQuote = [{
+    bookname: "Job",
+    chapter: "20",
+    verse: "5",
+    text: "That the triumphing of the wicked is short, and the joy of the hypocrite but for a moment?"
+  }]
+  const getVerse = async () => {
+    // http://quotes.rest/bible/verse.json
+    const response = await fetch("https://labs.bible.org/api/?passage=random&type=json", {
+      method: "GET",
+      headers: {
+        "Accept": "application/json"
+      },
+      mode: 'cors'
+    })
+    const data = await response.json()
+    if (!data || data.error) {
+      console.log("bible error")
+      showQuote(sampleQuote)
+    } else {
+      showQuote(data[0])
+    }
+  }
+
+  getVerse()
+
+
+
+  const setRandomColors = () => {
+    function rgbToYIQ({
+      r,
+      g,
+      b
+    }) {
+      return ((r * 299) + (g * 587) + (b * 114)) / 1000
+    }
+
+    function hexToRgb(hex) {
+      if (!hex || hex === undefined || hex === '') {
+        console.log("no hex?")
+        return undefined
+      }
+
+      const result =
+        /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex)
+
+      return result ? {
+        r: parseInt(result[1], 16),
+        g: parseInt(result[2], 16),
+        b: parseInt(result[3], 16)
+      } : undefined
+    }
+
+    function contrast(colorHex, threshold = 128) {
+      if (colorHex === undefined) {
+        return '#000'
+      }
+
+      const rgb = hexToRgb(colorHex)
+
+      if (rgb === undefined) {
+        return '#000'
+      }
+
+      return rgbToYIQ(rgb) >= threshold ? '#000' : '#fff'
+    }
+
+    const randomHex = "#" + ((1 << 24) * Math.random() | 0).toString(16)
+    // console.log(`hex: ${randomHex}`);
+    const contrastRandomHex = contrast(randomHex)
+    // console.log(`contrast: ${contrastRandomHex}`);
+    document.getElementById("quoteBox").style.background = randomHex
+    document.getElementById("quoteBox").style.color = contrastRandomHex
+
+
+  }
+  // setRandomColors()
+  window.setInterval(setRandomColors, interval)
+</script>
