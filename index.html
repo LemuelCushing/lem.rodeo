@@ -1,36 +1,50 @@
 <!doctype html>
-<style>
-  html {
-    /* background: no-repeat center center fixed;  */
-    background: no-repeat center center fixed;
-    -webkit-background-size: auto;
-    -moz-background-size: auto;
-    -o-background-size: auto;
-    background-size: auto;
-  }
+<!DOCTYPE html>
+<html lang="en">
 
-  .box {
-    justify-self: center;
-    align-self: center;
-    font-family: monospace;
-    font-size: x-large;
-    backdrop-filter: revert;
-    filter: blur(0.5px);
-    /* opacity: 50%; */
-    padding: 10px 0px;
-  }
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="shortcut icon" href="favicon.ico">
+  <meta name="msapplication-TileColor" content="#ffffff">
+  <meta name="theme-color" content="#ffffff">
+  <title>lem</title>
+  <style>
+    html {
+      /* background: no-repeat center center fixed;  */
+      background: no-repeat center center fixed;
+      -webkit-background-size: auto;
+      -moz-background-size: auto;
+      -o-background-size: auto;
+      background-size: auto;
+    }
 
-  body {
-    display: grid;
-    grid-template-rows: 100vh;
-    grid-template-columns: 100vw;
-  }
-</style>
+    .box {
+      justify-self: center;
+      align-self: center;
+      font-family: monospace;
+      font-size: x-large;
+      backdrop-filter: revert;
+      filter: blur(0.5px);
+      /* opacity: 50%; */
+      padding: 10px 0px;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: 100vh;
+      grid-template-columns: 100vw;
+    }
+  </style>
+</head>
 
 <body>
   <div id="quoteBox" class="box" style="margin: 30px; background: white"></div>
 </body>
-
 <script>
   var image_width = 1024
   var interval = 10000
@@ -42,7 +56,7 @@
   /*
    * puzzle together the long wikimedia API query URL
    */
-  var url = 'http://commons.wikimedia.org/w/api.php'
+  var url = 'https://commons.wikimedia.org/w/api.php'
   url += '?action=query&generator=random'
   url += '&grnnamespace=6' // only return images (6)
   url += '&prop=imageinfo'
@@ -175,3 +189,5 @@
   // setRandomColors()
   window.setInterval(setRandomColors, interval)
 </script>
+
+</html>
