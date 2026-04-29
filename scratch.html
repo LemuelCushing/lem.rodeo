@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>HyperApp Poline Example</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+      background-color: white;
+    }
+
+    .box {
+      padding: 20px;
+      text-align: center;
+      border-radius: 10px;
+      box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1);
+      transition: background 0.5s ease, color 0.5s ease;
+    }
+
+    button {
+      margin-top: 10px;
+      margin-right: 5px;
+      padding: 10px 15px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.5s ease, color 0.5s ease;
+    }
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script type="module">
+    import { h, text, app } from "https://unpkg.com/hyperapp"
+    import { Poline, positionFunctions } from "https://unpkg.com/poline?module" // Import both Poline and positionFunctions
+
+    // Initialize Poline with random colors and a custom position function
+    const poline = new Poline({
+      numPoints: 5, // Generate 5 colors in the palette
+      positionFunction: positionFunctions.smoothStepPosition, // Use smoothStepPosition for smoother interpolation
+    })
+
+    // Initial State
+    const initialState = {
+      text: "Hello, World!",
+      textColor: poline.colorsCSS[0], // Use Poline's first color for text
+      bgColor: poline.colorsCSS[4],   // Use Poline's last color for background
+    }
+
+    // Actions to change text and background colors based on Poline palette
+    const ChangeTextColor = (state) => {
+      const nextTextColor = poline.colorsCSS[Math.floor(Math.random() * poline.colorsCSS.length)]
+      return { ...state, textColor: nextTextColor }
+    }
+
+    const ChangeBgColor = (state) => {
+      const nextBgColor = poline.colorsCSS[Math.floor(Math.random() * poline.colorsCSS.length)]
+      return { ...state, bgColor: nextBgColor }
+    }
+
+    // Component to display text with dynamic colors
+    const Quote = (state) =>
+      h(
+        "div",
+        {
+          id: "quoteBox",
+          class: "box",
+          style: {
+            background: state.bgColor,
+            color: state.textColor,
+          },
+        },
+        text(state.text)
+      )
+
+    // View with buttons to change text and background colors
+    const view = (state) =>
+      h("div", {}, [
+        Quote(state),
+        h("button", { onclick: ChangeTextColor }, text("Change Text Color")),
+        h("button", { onclick: ChangeBgColor }, text("Change Background Color")),
+      ])
+
+    // Initialize the app
+    app({
+      init: initialState,
+      view: view,
+      node: document.getElementById("app"),
+    });
+  </script>
+</body>
+
+</html>

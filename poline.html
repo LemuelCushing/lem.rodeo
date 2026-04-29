@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>lem</title>
+  <style>
+    /* Your styles here */
+  </style>
+</head>
+
+<body>
+  <div id="app"></div>
+
+  <script type="module">
+    import { h, app } from "https://unpkg.com/hyperapp@2.0.15?module"
+    import { Poline, positionFunctions } from 'https://unpkg.com/poline?module'
+    import { prominent } from 'https://unpkg.com/color.js?module'
+    import { converter } from 'https://unpkg.com/culori@2.0.1?module'
+
+    // Initial state
+    const state = {
+      quote: "",
+      bgColor: "white",
+      textColor: "black",
+    }
+
+    // Actions
+    const actions = {
+      SetQuote: (state, quote) => ({ ...state, quote }),
+      SetColors: (state, colors) => ({ ...state, ...colors }),
+    }
+
+    // View
+    const QuoteBox = (state) =>
+      h("div", {
+        id: "quoteBox",
+        class: "box",
+        style: {
+          background: state.bgColor,
+          color: state.textColor,
+        },
+        innerHTML: state.quote,
+      })
+
+    // Initialize app
+    const main = app({
+      init: state,
+      view: QuoteBox,
+      node: document.getElementById("app"),
+      actions,
+    })
+
+    // Fetch a random image and extract colors
+    async function getRandomImageJson() {
+      const width = randomIntFromInterval(250, 2800)
+      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=random&grnnamespace=6&prop=imageinfo&iiprop=url&iiurlwidth=${width}&format=json&origin=*`
+
+      try {
+        const response = await fetch(url)
+        const data = await response.json()
+        const pages = data.query.pages
+        const imageInfo = Object.values(pages)[0].imageinfo[0]
+        const thumbUrl = imageInfo.thumburl
+        const imageUrl = imageInfo.url
+
+        // Use color.js to extract prominent colors from the thumbnail
+        const dominantColors = await prominent(thumbUrl, { amount: 2, group: 30 })
+
+        // Use culori to convert RGB to HSL
+        const rgbToHsl = converter('hsl')
+
+        const anchorColors = dominantColors.map(rgb => {
+          const [r, g, b] = rgb.map(c => c / 255) // Normalize RGB values to [0, 1]
+          const hsl = rgbToHsl({ r, g, b })
+          // Ensure h, s, l are numbers and handle undefined values
+          const h = hsl.h !== undefined ? hsl.h : 0
+          const s = hsl.s !== undefined ? hsl.s : 0
+          const l = hsl.l !== undefined ? hsl.l : 0
+          return [h, s, l]
+        })
+
+        // Use Poline to generate harmonious colors
+        const poline = new Poline({
+          anchorColors: anchorColors,
+          numPoints: 5,
+          positionFunction: positionFunctions.smoothStepPosition,
+        })
+        const colors = poline.colorsCSS
+
+        // Set text and box colors
+        main.SetColors({
+          bgColor: colors[1],
+          textColor: colors[3],
+        })
+
+        // Set animated gradient background
+        document.body.classList.add('loading-gradient')
+        document.body.style.background = `linear-gradient(-45deg, ${colors.join(', ')})`
+
+        // Once the full image loads, replace the background
+        const img = new Image()
+        img.src = imageUrl
+        img.onload = () => {
+          document.body.classList.remove('loading-gradient')
+          document.body.style.background = `url(${imageUrl}) no-repeat center center fixed`
+          document.body.style.backgroundSize = 'cover'
+        }
+      } catch (error) {
+        console.error("Error fetching background image:", error)
+      }
+    }
+
+    // Fetch a random Bible verse
+    async function getVerse() {
+      try {
+        const response = await fetch("https://labs.bible.org/api/?passage=random&type=json")
+        const data = await response.json()
+        const verseText = data[0].text
+        main.SetQuote(verseText)
+      } catch (error) {
+        console.error("Error fetching quote:", error)
+        main.SetQuote("That the triumphing of the wicked is short, and the joy of the hypocrite but for a moment?")
+      }
+    }
+
+    // Helper to get a random integer in a given range
+    function randomIntFromInterval(min, max) {
+      return Math.floor(Math.random() * (max - min + 1) + min)
+    }
+
+    // Fetch the initial verse and image
+    getVerse()
+    getRandomImageJson()
+
+    // Refresh the image and colors every 10 seconds
+    setInterval(getRandomImageJson, 10000);
+  </script>
+</body>
+
+</html>
