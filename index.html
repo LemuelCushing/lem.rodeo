@@ -42,6 +42,8 @@
 
     const state = {
       quote: "",
+      citation: "",
+      imagePageUrl: "",
       bgColor: "white",
       textColor: "black"
     }
@@ -52,10 +54,17 @@
       style: {
         background: state.bgColor,
         color: state.textColor
-      }
+      },
+      "data-citation": state.citation,
+      "data-image-page-url": state.imagePageUrl
     }, text(state.quote))
 
-    const SetQuote = quote => state => ({ ...state, quote: quote })
+    const SetVerse = verse => state => ({
+      ...state,
+      quote: verse.text,
+      citation: citationFor(verse)
+    })
+    const SetImagePageUrl = imagePageUrl => state => ({ ...state, imagePageUrl })
     const SetColors = colors => state => ({ ...state, ...colors })
 
     const dispatch = app({
@@ -64,20 +73,50 @@
       node: document.getElementById("app")
     })
 
+    const MaxBackgroundSize = 1200
+    const MinBackgroundSize = 250
+    const Interval = 10000
+
     function randomIntFromInterval(min, max) {
       return Math.floor(Math.random() * (max - min + 1) + min)
     }
 
-    async function getRandomImageJson() {
-      const width = randomIntFromInterval(250, 2800)
-      const url = `https://commons.wikimedia.org/w/api.php?action=query&generator=random&grnnamespace=6&prop=imageinfo&iiprop=url&iiurlwidth=${width}&format=json&origin=*`
+    function wikimediaImageUrl(width) {
+      const params = new URLSearchParams({
+        action: "query",
+        generator: "random",
+        grnnamespace: "6",
+        prop: "imageinfo",
+        iiprop: "url",
+        iiurlwidth: width,
+        format: "json",
+        origin: "*"
+      })
 
+      return `https://commons.wikimedia.org/w/api.php?${params}`
+    }
+
+    const WikimediaImageUrl = wikimediaImageUrl(randomIntFromInterval(MinBackgroundSize, MaxBackgroundSize))
+
+    function applyBackground(imageInfo) {
+      document.documentElement.style.backgroundImage = `url(${imageInfo.thumburl || imageInfo.url})`
+      document.documentElement.style.backgroundPosition = "center center"
+      document.documentElement.style.backgroundSize = "auto"
+      document.documentElement.style.backgroundRepeat = "no-repeat"
+      dispatch(SetImagePageUrl(imageInfo.descriptionurl || imageInfo.descriptionshorturl || ""))
+    }
+
+    function citationFor(verse) {
+      return `${verse.bookname} ${verse.chapter}:${verse.verse}`
+    }
+
+    async function getRandomImageJson() {
       try {
-        const response = await fetch(url)
+        const response = await fetch(WikimediaImageUrl)
         const data = await response.json()
         const pages = data.query.pages
-        const imageUrl = Object.values(pages)[0].imageinfo[0].thumburl
-        document.body.style.backgroundImage = `url(${imageUrl})`
+        const imageInfo = Object.values(pages)[0].imageinfo[0]
+        applyBackground(imageInfo)
       } catch (error) {
         console.error('Error fetching background:', error)
       }
@@ -87,10 +126,15 @@
       try {
         const response = await fetch("https://labs.bible.org/api/?passage=random&type=json")
         const data = await response.json()
-        dispatch(SetQuote(data[0].text))
+        dispatch(SetVerse(data[0]))
       } catch (error) {
         console.error("Error fetching quote:", error)
-        dispatch(SetQuote("That the triumphing of the wicked is short, and the joy of the hypocrite but for a moment?"))
+        dispatch(SetVerse({
+          bookname: "Job",
+          chapter: "20",
+          verse: "5",
+          text: "That the triumphing of the wicked is short, and the joy of the hypocrite but for a moment?"
+        }))
       }
     }
 
@@ -114,8 +158,8 @@
     getRandomImageJson()
     setRandomColors()
 
-    setInterval(getRandomImageJson, 10000)
-    setInterval(setRandomColors, 10000);
+    setInterval(getRandomImageJson, Interval)
+    setInterval(setRandomColors, Interval);
   </script>
 </body>
 
