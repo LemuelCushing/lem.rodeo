@@ -31,11 +31,80 @@
       margin: 30px;
       background: white;
     }
+
+    .info-hint {
+      --info-hint-size: 60px;
+      position: fixed;
+      display: flex;
+      border: 0;
+      width: var(--info-hint-size);
+      height: var(--info-hint-size);
+      padding: 0;
+      font: 14px monospace;
+      background: transparent;
+      cursor: pointer;
+    }
+
+    .info-hint-top {
+      top: 0;
+      align-items: flex-start;
+    }
+
+    .info-hint-bottom {
+      bottom: 0;
+      align-items: flex-end;
+    }
+
+    .info-hint-left {
+      left: 0;
+      justify-content: flex-start;
+    }
+
+    .info-hint-right {
+      right: 0;
+      justify-content: flex-end;
+    }
+
+    .info-hint-layer {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 7px;
+      color: black;
+      background: white;
+      filter: blur(0.2px);
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .info-hint:hover .info-hint-layer,
+    .info-hint:focus-visible .info-hint-layer {
+      opacity: 1;
+    }
+
+    .info-hint-text {
+      white-space: nowrap;
+    }
+
+    .info-hint-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 17px;
+      height: 17px;
+      border: 1px solid currentColor;
+      line-height: 1;
+      box-shadow: 2px 2px 0 currentColor;
+    }
   </style>
 </head>
 
 <body>
   <div id="app"></div>
+  <button class="info-hint info-hint-top info-hint-left" type="button" aria-label="здрасти. 4ukni ?"><span class="info-hint-layer"><span class="info-hint-text">здрасти. 4ukni</span><span class="info-hint-icon" aria-hidden="true">?</span></span></button>
+  <button class="info-hint info-hint-top info-hint-right" type="button" aria-label="здрасти. 4ukni ?"><span class="info-hint-layer"><span class="info-hint-text">здрасти. 4ukni</span><span class="info-hint-icon" aria-hidden="true">?</span></span></button>
+  <button class="info-hint info-hint-bottom info-hint-left" type="button" aria-label="здрасти. 4ukni ?"><span class="info-hint-layer"><span class="info-hint-text">здрасти. 4ukni</span><span class="info-hint-icon" aria-hidden="true">?</span></span></button>
+  <button class="info-hint info-hint-bottom info-hint-right" type="button" aria-label="здрасти. 4ukni ?"><span class="info-hint-layer"><span class="info-hint-text">здрасти. 4ukni</span><span class="info-hint-icon" aria-hidden="true">?</span></span></button>
 
   <script type="module">
     import { h, text, app } from "https://unpkg.com/hyperapp"
@@ -73,7 +142,7 @@
       node: document.getElementById("app")
     })
 
-    const MaxBackgroundSize = 1200
+    const MaxBackgroundSize = 2800
     const MinBackgroundSize = 250
     const Interval = 10000
 
@@ -99,11 +168,19 @@
     const WikimediaImageUrl = wikimediaImageUrl(randomIntFromInterval(MinBackgroundSize, MaxBackgroundSize))
 
     function applyBackground(imageInfo) {
-      document.documentElement.style.backgroundImage = `url(${imageInfo.thumburl || imageInfo.url})`
-      document.documentElement.style.backgroundPosition = "center center"
-      document.documentElement.style.backgroundSize = "auto"
-      document.documentElement.style.backgroundRepeat = "no-repeat"
-      dispatch(SetImagePageUrl(imageInfo.descriptionurl || imageInfo.descriptionshorturl || ""))
+      const imageUrl = imageInfo.thumburl || imageInfo.url
+      const image = new Image()
+
+      image.onload = () => {
+        document.documentElement.style.backgroundImage = `url(${imageUrl})`
+        document.documentElement.style.backgroundPosition = "center center"
+        document.documentElement.style.backgroundSize = "auto"
+        document.documentElement.style.backgroundRepeat = "no-repeat"
+        dispatch(SetImagePageUrl(imageInfo.descriptionurl || imageInfo.descriptionshorturl || ""))
+      }
+
+      image.onerror = error => console.error("Error loading background:", error)
+      image.src = imageUrl
     }
 
     function citationFor(verse) {
