@@ -1,0 +1,12 @@
+{
+  "name": "lem-rodeo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "site:deploy": "surge ./public lem.rodeo",
+    "worker:dev": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest dev --port 8788",
+    "worker:deploy": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest deploy",
+    "worker:tail": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest tail",
+    "worker:version": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest --version"
+  }
+}

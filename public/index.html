@@ -1,0 +1,1241 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>lem</title>
+  <style>
+    :root {
+      --paper: white;
+      --ink: black;
+      --mono: monospace;
+    }
+
+    html {
+      background: no-repeat center center fixed;
+      -webkit-background-size: auto;
+      -moz-background-size: auto;
+      -o-background-size: auto;
+      background-size: auto;
+    }
+
+    body {
+      display: grid;
+      grid-template-rows: 100vh;
+      grid-template-columns: 100vw;
+      margin: 0;
+    }
+
+    .box {
+      justify-self: center;
+      align-self: center;
+      box-sizing: border-box;
+      max-width: calc(100vw - 60px);
+      font-family: var(--mono);
+      font-size: x-large;
+      backdrop-filter: revert;
+      filter: blur(0.5px);
+      padding: 10px 0px;
+      margin: 30px;
+      overflow-wrap: anywhere;
+    }
+
+    .box,
+    .info-hint-layer,
+    .info-modal,
+    .info-modal-close,
+    .info-modal kbd {
+      color: var(--ink);
+      background: var(--paper);
+    }
+
+    .info-modal,
+    .info-modal-close,
+    .info-modal kbd {
+      border: 1px solid var(--ink);
+    }
+
+    .corner {
+      position: fixed;
+      top: auto;
+      right: auto;
+      bottom: auto;
+      left: auto;
+    }
+
+    .corner[data-y="top"] {
+      top: var(--corner-offset, 0);
+    }
+
+    .corner[data-y="bottom"] {
+      bottom: var(--corner-offset, 0);
+    }
+
+    .corner[data-x="left"] {
+      left: var(--corner-offset, 0);
+    }
+
+    .corner[data-x="right"] {
+      right: var(--corner-offset, 0);
+    }
+
+    .info-hint {
+      --info-hint-size: 60px;
+      display: flex;
+      border: 0;
+      width: var(--info-hint-size);
+      height: var(--info-hint-size);
+      padding: 0;
+      font: 14px var(--mono);
+      background: transparent;
+    }
+
+    .info-hint[data-y="top"] {
+      align-items: flex-start;
+    }
+
+    .info-hint[data-y="bottom"] {
+      align-items: flex-end;
+    }
+
+    .info-hint[data-x="left"] {
+      justify-content: flex-start;
+    }
+
+    .info-hint[data-x="right"] {
+      justify-content: flex-end;
+    }
+
+    .info-hint-layer {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 7px;
+      filter: blur(0.2px);
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+
+    .info-hint:hover .info-hint-layer {
+      opacity: 1;
+    }
+
+    .info-hint-text {
+      white-space: nowrap;
+    }
+
+    .info-hint-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 17px;
+      height: 17px;
+      border: 1px solid currentColor;
+      line-height: 1;
+      box-shadow: 2px 2px 0 currentColor;
+    }
+
+    .pause-tick {
+      --corner-offset: 3px;
+      width: 12px;
+      height: 12px;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .pause-tick::before,
+    .pause-tick::after {
+      content: "";
+      position: absolute;
+      top: 0;
+      width: 3px;
+      height: 10px;
+      background: var(--ink);
+    }
+
+    .pause-tick::before {
+      left: 1px;
+    }
+
+    .pause-tick::after {
+      right: 1px;
+    }
+
+    body.paused .pause-tick {
+      opacity: 0.78;
+    }
+
+    .quote-nudge {
+      animation: quote-nudge 160ms steps(2, end);
+    }
+
+    @keyframes modal-static {
+      0%,
+      87%,
+      100% {
+        transform: translate(-50%, -50%) rotate(-0.2deg) translate(0, 0);
+      }
+
+      88% {
+        transform: translate(-50%, -50%) rotate(0.15deg) translate(2px, -1px);
+      }
+
+      90% {
+        transform: translate(-50%, -50%) rotate(-0.35deg) translate(-1px, 1px);
+      }
+    }
+
+    @keyframes modal-cursor {
+      0%,
+      49% {
+        opacity: 0.2;
+      }
+
+      50%,
+      100% {
+        opacity: 0.85;
+      }
+    }
+
+    @keyframes quote-nudge {
+      0%,
+      100% {
+        transform: translateX(0);
+      }
+
+      25% {
+        transform: translateX(-4px);
+      }
+
+      75% {
+        transform: translateX(4px);
+      }
+    }
+
+    .info-modal {
+      box-sizing: border-box;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      width: min(500px, calc(100vw - 32px));
+      max-height: calc(100vh - 32px);
+      margin: 0;
+      padding: 16px 18px 13px;
+      overflow: auto;
+      font: 15px var(--mono);
+      filter: blur(0.15px);
+      transform: translate(-50%, -50%) rotate(-0.2deg);
+      border-style: solid dotted solid double;
+      box-shadow:
+        3px 0 0 var(--ink),
+        -2px 5px 0 var(--paper),
+        -3px 6px 0 var(--ink);
+      animation: modal-static 3.2s steps(1, end) infinite;
+    }
+
+    .info-modal::backdrop {
+      background: rgba(255, 255, 255, 0.24);
+    }
+
+    .info-modal::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        repeating-linear-gradient(180deg, transparent 0 7px, rgba(0, 0, 0, 0.07) 7px 8px),
+        linear-gradient(90deg, transparent 0 18%, rgba(0, 0, 0, 0.06) 18% 19%, transparent 19% 71%, rgba(0, 0, 0, 0.05) 71% 72%, transparent 72%);
+      mix-blend-mode: multiply;
+    }
+
+    .info-modal-close {
+      position: absolute;
+      top: 7px;
+      right: 8px;
+      padding: 0 5px 1px;
+      font: 15px var(--mono);
+      line-height: 1.2;
+      cursor: pointer;
+    }
+
+    .info-modal-close:focus-visible,
+    .info-modal a:focus-visible {
+      outline: 1px dotted var(--ink);
+      outline-offset: 2px;
+    }
+
+    .info-modal-close:focus-visible {
+      box-shadow: 2px 2px 0 var(--ink);
+    }
+
+    .info-modal-title {
+      margin: 0 26px 14px 0;
+      font-size: 18px;
+      font-weight: normal;
+    }
+
+    .info-modal-title::before {
+      content: "// ";
+    }
+
+    .info-modal-title::after {
+      content: " _";
+      animation: modal-cursor 1.1s steps(1, end) infinite;
+    }
+
+    .info-modal-row {
+      display: grid;
+      grid-template-columns: 13ch minmax(0, 1fr);
+      gap: 12px;
+      margin: 8px 0;
+    }
+
+    .info-modal-label {
+      opacity: 0.65;
+      text-align: right;
+    }
+
+    .info-modal-row[hidden] {
+      display: none;
+    }
+
+    .info-modal-details,
+    .info-modal-row dd {
+      margin: 0;
+      min-width: 0;
+    }
+
+    .info-modal a {
+      color: var(--ink);
+      text-decoration: underline;
+      text-decoration-thickness: 1px;
+      text-underline-offset: 3px;
+      overflow-wrap: anywhere;
+    }
+
+    .info-modal-rights {
+      max-height: 8lh;
+      overflow: auto;
+      white-space: pre-wrap;
+      font-size: 12px;
+      line-height: 1.35;
+      opacity: 0.72;
+    }
+
+    .key-map {
+      display: grid;
+      grid-template-columns: max-content max-content;
+      gap: 14px 18px;
+      margin-top: 18px;
+      padding: 0;
+      list-style: none;
+    }
+
+    .key-callout {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      max-width: 100%;
+      transform: translateX(var(--key-slip, 0));
+    }
+
+    .key-callout:nth-child(2) {
+      --key-slip: 2px;
+    }
+
+    .key-callout:nth-child(4) {
+      --key-slip: -1px;
+    }
+
+    .key-callout:nth-child(5) {
+      grid-column: 1 / -1;
+      --key-slip: 4px;
+    }
+
+    .info-modal kbd {
+      flex: 0 0 auto;
+      min-width: var(--kbd-min-width, 19px);
+      padding: var(--kbd-padding, 3px 6px);
+      font: var(--kbd-font, 14px var(--mono));
+      text-align: center;
+      box-shadow: var(--kbd-shadow, 2px 2px 0 var(--ink));
+    }
+
+    .key-arrow {
+      display: inline-block;
+      flex: 0 0 auto;
+      width: 18px;
+      border-top: 1px solid var(--ink);
+    }
+
+    .info-modal-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 7px;
+      margin-top: 16px;
+      font-size: 13px;
+      opacity: 0.72;
+    }
+
+    .info-modal-footer kbd {
+      --kbd-min-width: 18px;
+      --kbd-padding: 1px 4px;
+      --kbd-font: 12px var(--mono);
+      --kbd-shadow: 1px 1px 0 var(--ink);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .info-modal,
+      .info-modal-title::after {
+        animation: none;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .key-map {
+        grid-template-columns: 1fr;
+      }
+
+      .key-callout:nth-child(5) {
+        grid-column: auto;
+      }
+    }
+
+  </style>
+</head>
+
+<body>
+  <div id="quoteBox" class="box" data-citation="" data-image-page-url=""></div>
+
+  <dialog id="infoModal" class="info-modal" aria-labelledby="infoModalTitle">
+    <button id="infoModalClose" class="info-modal-close" type="button" aria-label="Close">x</button>
+    <h1 id="infoModalTitle" class="info-modal-title">eh?</h1>
+
+    <dl class="info-modal-details">
+      <div class="info-modal-row">
+        <dt class="info-modal-label">the good book</dt>
+        <dd id="infoModalCitation">waiting</dd>
+      </div>
+
+      <div class="info-modal-row">
+        <dt class="info-modal-label">tongue is</dt>
+        <dd><a id="infoModalTranslationLink" href="#" target="_blank" rel="noopener noreferrer">waiting</a></dd>
+      </div>
+
+      <div id="infoModalRightsRow" class="info-modal-row" hidden>
+        <dt class="info-modal-label">owed to</dt>
+        <dd id="infoModalRights" class="info-modal-rights"></dd>
+      </div>
+
+      <div class="info-modal-row">
+        <dt class="info-modal-label">wall is</dt>
+        <dd><a id="infoModalImageLink" href="#" target="_blank" rel="noopener noreferrer">waiting</a></dd>
+      </div>
+    </dl>
+
+    <ul id="keyMap" class="key-map" aria-label="Keyboard controls"></ul>
+
+    <div class="info-modal-footer"><kbd>esc</kbd><span>lose the signal</span></div>
+  </dialog>
+
+  <script type="module">
+    const $ = id => document.getElementById(id)
+    const html = String.raw
+
+    const BackgroundWidth = { min: 250, max: 2800 }
+    const DownloadImage = { maxScale: 1.5, pixelLimit: 3_000_000 }
+    const Hint = { text: "здрасти. 4ukni", icon: "?" }
+    const ImageTitle = { maxLength: 96 }
+    const Interval = 10_000
+    const MaxImageFetchAttempts = 5
+
+    const AllowedQuoteTags = new Set(["B", "STRONG", "I", "EM", "BR"])
+    const AudioFile = /\.(ogg|oga|opus|mp3|wav|flac|m4a|mid|midi)$/i
+    const BibleUrl = "https://labs.bible.org/api/?passage=random&type=json"
+    const YouVersionUrl = "/api/youversion"
+    const Corners = ["top left", "top right", "bottom left", "bottom right"].map(corner => corner.split(" "))
+    const KeyLegend = [
+      { keys: ["Space"], note: "hold them horses" },
+      { keys: ["D"], note: "Keep the trout" },
+      { keys: ["L"], note: "borrow a tongue" },
+      { keys: ["T"], note: "trade the witness" },
+      { keys: ["<", ">"], note: "turn the kalpa" }
+    ]
+    const BaselineTranslation = {
+      id: "labs-net",
+      abbreviation: "NET",
+      title: "NET Bible",
+      languageCode: "en",
+      languageTag: "en",
+      publisherUrl: "https://labs.bible.org/",
+      copyright: ""
+    }
+    const BibleBookIds = new Map(Object.entries({
+      "Genesis": "GEN",
+      "Exodus": "EXO",
+      "Leviticus": "LEV",
+      "Numbers": "NUM",
+      "Deuteronomy": "DEU",
+      "Joshua": "JOS",
+      "Judges": "JDG",
+      "Ruth": "RUT",
+      "1 Samuel": "1SA",
+      "2 Samuel": "2SA",
+      "1 Kings": "1KI",
+      "2 Kings": "2KI",
+      "1 Chronicles": "1CH",
+      "2 Chronicles": "2CH",
+      "Ezra": "EZR",
+      "Nehemiah": "NEH",
+      "Esther": "EST",
+      "Job": "JOB",
+      "Psalm": "PSA",
+      "Psalms": "PSA",
+      "Proverbs": "PRO",
+      "Ecclesiastes": "ECC",
+      "Song of Songs": "SNG",
+      "Song of Solomon": "SNG",
+      "Isaiah": "ISA",
+      "Jeremiah": "JER",
+      "Lamentations": "LAM",
+      "Ezekiel": "EZK",
+      "Daniel": "DAN",
+      "Hosea": "HOS",
+      "Joel": "JOL",
+      "Amos": "AMO",
+      "Obadiah": "OBA",
+      "Jonah": "JON",
+      "Micah": "MIC",
+      "Nahum": "NAM",
+      "Habakkuk": "HAB",
+      "Zephaniah": "ZEP",
+      "Haggai": "HAG",
+      "Zechariah": "ZEC",
+      "Malachi": "MAL",
+      "Matthew": "MAT",
+      "Mark": "MRK",
+      "Luke": "LUK",
+      "John": "JHN",
+      "Acts": "ACT",
+      "Romans": "ROM",
+      "1 Corinthians": "1CO",
+      "2 Corinthians": "2CO",
+      "Galatians": "GAL",
+      "Ephesians": "EPH",
+      "Philippians": "PHP",
+      "Colossians": "COL",
+      "1 Thessalonians": "1TH",
+      "2 Thessalonians": "2TH",
+      "1 Timothy": "1TI",
+      "2 Timothy": "2TI",
+      "Titus": "TIT",
+      "Philemon": "PHM",
+      "Hebrews": "HEB",
+      "James": "JAS",
+      "1 Peter": "1PE",
+      "2 Peter": "2PE",
+      "1 John": "1JN",
+      "2 John": "2JN",
+      "3 John": "3JN",
+      "Jude": "JUD",
+      "Revelation": "REV"
+    }))
+    const TranslationCatalog = {
+      en: [
+        { id: "3034", abbreviation: "BSB", title: "Berean Standard Bible" },
+        { id: "111", abbreviation: "NIV", title: "New International Version" },
+        { id: "110", abbreviation: "NIrV", title: "New International Reader's Version" },
+        { id: "100", abbreviation: "NASB1995", title: "New American Standard Bible - NASB 1995" },
+        { id: "2692", abbreviation: "NASB2020", title: "New American Standard Bible - NASB" },
+        { id: "1588", abbreviation: "AMP", title: "Amplified Bible" },
+        { id: "206", abbreviation: "WEBUS", title: "World English Bible, American English Edition" },
+        { id: "12", abbreviation: "ASV", title: "American Standard Version" },
+        { id: "2163", abbreviation: "GNV", title: "Geneva Bible" },
+        { id: "2660", abbreviation: "LSV", title: "Literal Standard Version" },
+        { id: "1932", abbreviation: "FBV", title: "Free Bible Version" },
+        { id: "2079", abbreviation: "EASY", title: "EasyEnglish Bible 2024" },
+        { id: "2530", abbreviation: "PEV", title: "Plain English Version" },
+        { id: "42", abbreviation: "CPDV", title: "Catholic Public Domain Version" },
+        { id: "130", abbreviation: "TOJB2011", title: "The Orthodox Jewish Bible" },
+        { id: "1209", abbreviation: "WMB", title: "World Messianic Bible" },
+        { id: "1207", abbreviation: "WMBBE", title: "World Messianic Bible British Edition" },
+        { id: "3427", abbreviation: "TCENT", title: "The Text-Critical English New Testament" },
+        { id: "1849", abbreviation: "TPT", title: "The Passion Translation" },
+        { id: "113", abbreviation: "NIVUK", title: "New International Version (Anglicised)" }
+      ],
+      he: [
+        { id: "24", abbreviation: "HD", title: "Habrit Hakhadasha/Haderekh" }
+      ],
+      de: [
+        { id: "73", abbreviation: "Hfa", title: "Hoffnung fuer alle" },
+        { id: "51", abbreviation: "DELUT", title: "Lutherbibel 1912" },
+        { id: "57", abbreviation: "ELB", title: "Darby Unrevidierte Elberfelder" },
+        { id: "58", abbreviation: "ELB71", title: "Elberfelder 1871" },
+        { id: "65", abbreviation: "GANTP", title: "Albrecht NT und Psalmen" },
+        { id: "2200", abbreviation: "TKW", title: "Textbibel von Kautzsch und Weizsaecker" },
+        { id: "2351", abbreviation: "ELBBK", title: "Elberfelder Uebersetzung" }
+      ],
+      fr: [
+        { id: "21", abbreviation: "BDS", title: "La Bible du Semeur 2015" },
+        { id: "93", abbreviation: "LSG", title: "La Sainte Bible par Louis Segond 1910" },
+        { id: "62", abbreviation: "FMAR", title: "Martin 1744" },
+        { id: "64", abbreviation: "JND", title: "Bible J.N. Darby" },
+        { id: "131", abbreviation: "OST", title: "Ostervald" },
+        { id: "3447", abbreviation: "TFM", title: "Traduction Francaise de Modele" }
+      ]
+    }
+    const TranslationLanguages = Object.keys(TranslationCatalog)
+    const LanguageNames = {
+      en: "English",
+      he: "Hebrew",
+      de: "German",
+      fr: "French"
+    }
+    const SampleVerse = {
+      bookname: "Job",
+      chapter: "20",
+      verse: "5",
+      text: "That the triumphing of the wicked is short, and the joy of the hypocrite but for a moment?"
+    }
+    const PauseReason = {
+      User: "user",
+      Modal: "modal"
+    }
+
+    const quoteBox = $("quoteBox")
+    const infoModal = $("infoModal")
+    const infoModalClose = $("infoModalClose")
+    const infoModalCitation = $("infoModalCitation")
+    const infoModalImageLink = $("infoModalImageLink")
+    const infoModalRights = $("infoModalRights")
+    const infoModalRightsRow = $("infoModalRightsRow")
+    const infoModalTranslationLink = $("infoModalTranslationLink")
+    const keyMap = $("keyMap")
+    const pageStyle = document.documentElement.style
+
+    const pauseReasons = new Set()
+    const current = {
+      background: null,
+      citation: "",
+      languageCode: BaselineTranslation.languageCode,
+      passageId: "",
+      quote: "",
+      translation: BaselineTranslation,
+      translationIndexByLanguage: Object.fromEntries(TranslationLanguages.map(language => [language, 0])),
+      verse: null
+    }
+    let translationRequestId = 0
+
+    class BackgroundTrail {
+      records = []
+      index = -1
+
+      get newest() {
+        return this.records.length - 1
+      }
+
+      get followingLiveEdge() {
+        return this.index === this.newest
+      }
+
+      append(record) {
+        const shouldFollow = this.followingLiveEdge
+        this.records.push(record)
+        return shouldFollow ? this.newest : null
+      }
+
+      step(delta) {
+        const nextIndex = this.index + delta
+        return this.records[nextIndex] ? nextIndex : null
+      }
+
+      show(index) {
+        this.index = index
+        return this.records[index]
+      }
+    }
+
+    const backgroundTrail = new BackgroundTrail()
+
+    const json = url => fetch(url).then(response => response.json())
+    const paused = () => pauseReasons.size > 0
+    const randomInteger = ({ min, max }) => Math.floor(Math.random() * (max - min + 1) + min)
+    const randomHexColor = () => `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0")}`
+    const modulo = (value, length) => ((value % length) + length) % length
+
+    const apiUrl = (path, params = {}) => {
+      const url = new URL(`${YouVersionUrl}${path}`, window.location.origin)
+      Object.entries(params).forEach(([key, value]) => url.searchParams.set(key, value))
+
+      return url
+    }
+
+    const bookIdFor = bookname => BibleBookIds.get(bookname?.trim())
+
+    const passageIdFor = verse => {
+      const bookId = bookIdFor(verse.bookname)
+      return bookId ? `${bookId}.${verse.chapter}.${verse.verse}` : ""
+    }
+
+    const languageLabel = translation =>
+      LanguageNames[translation?.languageCode || current.languageCode] || translation?.languageTag || "unknown"
+
+    const translationLabel = translation =>
+      [translation?.abbreviation, languageLabel(translation)].filter(Boolean).join(" / ") || "waiting"
+
+    const translationFromVerse = verse => ({
+      ...(verse.translation || {}),
+      id: String(verse.translation?.id || ""),
+      copyright: verse.copyright || "",
+      languageCode: verse.translation?.languageTag?.split("-")[0] || current.languageCode,
+      languageTag: verse.translation?.languageTag || current.languageCode,
+      publisherUrl: verse.publisherUrl || verse.translation?.publisherUrl || ""
+    })
+
+    const textDirection = translation =>
+      translation?.languageCode === "he" || translation?.languageTag === "he" ? "rtl" : "ltr"
+
+    const translationsFor = languageCode => TranslationCatalog[languageCode] || []
+
+    const cornerMarkup = (tag, className, [y, x], body = "") =>
+      html`<${tag} class="corner ${className}" data-y="${y}" data-x="${x}" aria-hidden="true">${body}</${tag}>`
+
+    const plantCornerFurniture = () => {
+      const hint = html`
+        <span class="info-hint-layer">
+          <span class="info-hint-text">${Hint.text}</span>
+          <span class="info-hint-icon">${Hint.icon}</span>
+        </span>
+      `
+
+      document.body.insertAdjacentHTML("beforeend", [
+        ...Corners.map(corner => cornerMarkup("div", "info-hint", corner, hint)),
+        ...Corners.map(corner => cornerMarkup("span", "pause-tick", corner))
+      ].join(""))
+    }
+
+    const keycap = key => html`<kbd>${key}</kbd>`
+
+    const renderKeyLegend = () => {
+      keyMap.innerHTML = KeyLegend.map(({ keys, note }) => `
+        <li class="key-callout">
+          ${keys.map(keycap).join("")}<span class="key-arrow"></span><span>${note}</span>
+        </li>
+      `).join("")
+    }
+
+    const cleanedQuote = dirtyHtml => {
+      const template = document.createElement("template")
+      template.innerHTML = dirtyHtml || ""
+
+      template.content.querySelectorAll("*").forEach(node => {
+        if (AllowedQuoteTags.has(node.tagName)) {
+          [...node.attributes].forEach(({ name }) => node.removeAttribute(name))
+        } else {
+          node.replaceWith(document.createTextNode(node.textContent))
+        }
+      })
+
+      return {
+        html: template.innerHTML,
+        text: template.content.textContent || ""
+      }
+    }
+
+    const wikimediaImageUrl = width => {
+      const params = new URLSearchParams({
+        action: "query",
+        generator: "random",
+        grnnamespace: "6",
+        prop: "imageinfo",
+        iiprop: "url|mime|mediatype|extmetadata",
+        iiextmetadatafilter: "ObjectName|ImageDescription",
+        iiurlwidth: width,
+        format: "json",
+        origin: "*"
+      })
+
+      return `https://commons.wikimedia.org/w/api.php?${params}`
+    }
+
+    const WikimediaImageUrl = wikimediaImageUrl(randomInteger(BackgroundWidth))
+
+    const audioMediaPage = page => {
+      const imageInfo = page.imageinfo?.[0]
+      const title = page.title || imageInfo?.url || ""
+
+      return imageInfo?.mediatype === "AUDIO" ||
+        imageInfo?.mime?.startsWith("audio/") ||
+        AudioFile.test(title)
+    }
+
+    const textFromHtml = dirtyHtml => {
+      const template = document.createElement("template")
+      template.innerHTML = dirtyHtml || ""
+
+      return compactText(template.content.textContent)
+    }
+
+    const compactText = text =>
+      (text || "")
+        .replace(/\s+/g, " ")
+        .replace(/^English:\s*/i, "")
+        .trim()
+
+    const withoutFileExtension = text =>
+      text.replace(/\.(avif|djvu|gif|jpe?g|png|svg|tiff?|webp)$/i, "")
+
+    const elidedText = (text, limit = ImageTitle.maxLength) => {
+      if (text.length <= limit) return text
+
+      const wordBreak = text.lastIndexOf(" ", limit)
+      const end = wordBreak > limit * 0.55 ? wordBreak : limit
+
+      return `${text.slice(0, end).replace(/[,:;.\s]+$/, "")}...`
+    }
+
+    const commonsMetadataText = (page, key) =>
+      textFromHtml(page.imageinfo?.[0]?.extmetadata?.[key]?.value)
+
+    const fallbackFileTitle = page =>
+      withoutFileExtension(page.title.replace(/^File:/, ""))
+
+    const imageTitle = page =>
+      elidedText(withoutFileExtension(
+        commonsMetadataText(page, "ObjectName") ||
+        commonsMetadataText(page, "ImageDescription") ||
+        fallbackFileTitle(page)
+      ))
+
+    const backgroundRecord = page => {
+      const imageInfo = page.imageinfo[0]
+
+      return {
+        title: fallbackFileTitle(page),
+        imageTitle: imageTitle(page),
+        imageUrl: imageInfo.thumburl || imageInfo.url,
+        pageUrl: imageInfo.descriptionurl || imageInfo.descriptionshorturl || "",
+        image: null
+      }
+    }
+
+    const preloadBackground = record => {
+      const image = new Image()
+      image.crossOrigin = "anonymous"
+
+      image.onload = () => {
+        record.image = image
+        const nextIndex = backgroundTrail.append(record)
+        if (nextIndex !== null && !paused()) showBackground(nextIndex)
+      }
+
+      image.onerror = error => console.error("Error loading background:", error)
+      image.src = record.imageUrl
+    }
+
+    const showBackground = index => {
+      current.background = backgroundTrail.show(index)
+
+      Object.assign(pageStyle, {
+        backgroundImage: `url(${current.background.imageUrl})`,
+        backgroundPosition: "center center",
+        backgroundSize: "auto",
+        backgroundRepeat: "no-repeat"
+      })
+
+      quoteBox.dataset.imagePageUrl = current.background.pageUrl
+      updateInfoModal()
+    }
+
+    const citationFor = ({ bookname, chapter, verse }) => `${bookname} ${chapter}:${verse}`
+
+    const showVerse = verse => {
+      const quote = cleanedQuote(verse.text)
+
+      current.citation = citationFor(verse)
+      current.languageCode = BaselineTranslation.languageCode
+      current.passageId = passageIdFor(verse)
+      current.quote = quote.text
+      current.translation = BaselineTranslation
+      current.verse = verse
+
+      quoteBox.innerHTML = quote.html
+      quoteBox.dataset.citation = current.citation
+      quoteBox.dir = textDirection(current.translation)
+      updateInfoModal()
+    }
+
+    const showYouVersionVerse = verse => {
+      current.citation = verse.reference || current.citation
+      current.quote = verse.text || ""
+      current.translation = translationFromVerse(verse)
+
+      quoteBox.textContent = current.quote
+      quoteBox.dataset.citation = current.citation
+      quoteBox.dir = textDirection(current.translation)
+      updateInfoModal()
+    }
+
+    const randomWikimediaPage = async () => {
+      const data = await json(WikimediaImageUrl)
+
+      return Object.values(data.query?.pages || {})[0]
+    }
+
+    const queueRandomWikimediaBackground = async (attempt = 1) => {
+      try {
+        const page = await randomWikimediaPage()
+
+        if (!page?.imageinfo?.[0]) return
+
+        if (audioMediaPage(page)) return !paused() && attempt < MaxImageFetchAttempts
+          ? queueRandomWikimediaBackground(attempt + 1)
+          : undefined
+
+        preloadBackground(backgroundRecord(page))
+      } catch (error) {
+        console.error("Error fetching background:", error)
+      }
+    }
+
+    const getVerse = async () => {
+      try {
+        const [verse] = await json(BibleUrl)
+        showVerse(verse || SampleVerse)
+      } catch (error) {
+        console.error("Error fetching quote:", error)
+        showVerse(SampleVerse)
+      }
+    }
+
+    const getYouVersionVerse = ({ id }, passageId) =>
+      json(apiUrl("/verse", { bible: id, passage: passageId }))
+        .then(payload => {
+          if (payload.error) throw new Error(payload.error)
+          return payload
+        })
+
+    const tryTranslation = async (languageCode, index, requestId = translationRequestId) => {
+      const translations = translationsFor(languageCode)
+      if (!translations.length) return false
+
+      const start = modulo(index, translations.length)
+
+      for (let offset = 0; offset < translations.length; offset++) {
+        const translationIndex = modulo(start + offset, translations.length)
+        const translation = translations[translationIndex]
+
+        try {
+          const verse = await getYouVersionVerse(translation, current.passageId)
+          if (requestId !== translationRequestId) return true
+
+          current.languageCode = languageCode
+          current.translationIndexByLanguage[languageCode] = translationIndex
+          showYouVersionVerse(verse)
+          return true
+        } catch (error) {
+          console.warn(`No verse for ${translation.abbreviation} ${current.passageId}:`, error)
+        }
+      }
+
+      return false
+    }
+
+    const tryLanguage = async (startIndex, requestId = translationRequestId) => {
+      for (let offset = 0; offset < TranslationLanguages.length; offset++) {
+        const languageIndex = modulo(startIndex + offset, TranslationLanguages.length)
+        const languageCode = TranslationLanguages[languageIndex]
+        const translationIndex = current.translationIndexByLanguage[languageCode] || 0
+
+        if (await tryTranslation(languageCode, translationIndex, requestId)) return true
+      }
+
+      return false
+    }
+
+    const changeTranslation = async action => {
+      if (!current.passageId) return nudgeQuote()
+
+      const requestId = ++translationRequestId
+      const changed = await action(requestId)
+
+      if (requestId !== translationRequestId) return
+      if (!changed) nudgeQuote()
+    }
+
+    const currentTranslationIndex = () =>
+      current.translation?.id === BaselineTranslation.id ? -1 : current.translationIndexByLanguage[current.languageCode] || 0
+
+    const nextTranslation = () =>
+      changeTranslation(requestId =>
+        tryTranslation(current.languageCode, currentTranslationIndex() + 1, requestId)
+      )
+
+    const nextLanguage = () =>
+      changeTranslation(requestId => tryLanguage(TranslationLanguages.indexOf(current.languageCode) + 1, requestId))
+
+    const setRandomColors = () => {
+      const bgColor = randomHexColor()
+      const textColor = calculateContrastColor(bgColor)
+
+      Object.assign(quoteBox.style, { background: bgColor, color: textColor })
+    }
+
+    const calculateContrastColor = hexColor => {
+      const rgb = parseInt(hexColor.slice(1), 16)
+      const r = (rgb >> 16) & 0xff
+      const g = (rgb >> 8) & 0xff
+      const b = (rgb >> 0) & 0xff
+      const luma = 0.2126 * r + 0.7152 * g + 0.0722 * b
+      return luma < 128 ? "#fff" : "#000"
+    }
+
+    const openInfoModal = () => {
+      updateInfoModal()
+      setPaused(PauseReason.Modal, true)
+      if (!infoModal.open) infoModal.showModal()
+    }
+
+    const closeInfoModal = () => {
+      if (infoModal.open) infoModal.close()
+      setPaused(PauseReason.Modal, false)
+      if (infoModal.contains(document.activeElement)) document.activeElement.blur()
+    }
+
+    const updateInfoModal = () => {
+      infoModalCitation.textContent = current.citation || "waiting"
+      infoModalTranslationLink.textContent = translationLabel(current.translation)
+
+      if (current.translation?.publisherUrl) {
+        infoModalTranslationLink.href = current.translation.publisherUrl
+      } else {
+        infoModalTranslationLink.removeAttribute("href")
+      }
+
+      infoModalRights.textContent = current.translation?.copyright || ""
+      infoModalRightsRow.hidden = !current.translation?.copyright
+
+      const source = current.background
+
+      if (!source?.pageUrl) {
+        infoModalImageLink.removeAttribute("href")
+        infoModalImageLink.textContent = "waiting"
+        return
+      }
+
+      infoModalImageLink.href = source.pageUrl
+      infoModalImageLink.textContent = source.imageTitle || source.title || source.pageUrl
+    }
+
+    const setPaused = (reason, active) => {
+      pauseReasons[active ? "add" : "delete"](reason)
+      syncPausedIndicator()
+    }
+
+    const syncPausedIndicator = () => document.body.classList.toggle("paused", paused())
+
+    const toggleUserPause = () => setPaused(PauseReason.User, !pauseReasons.has(PauseReason.User))
+
+    const nudgeQuote = () => {
+      quoteBox.classList.remove("quote-nudge")
+      void quoteBox.offsetWidth
+      quoteBox.classList.add("quote-nudge")
+    }
+
+    const moveBackground = delta => {
+      const index = backgroundTrail.step(delta)
+      index === null ? nudgeQuote() : showBackground(index)
+    }
+
+    const previousBackground = () => moveBackground(-1)
+    const nextBackground = () => moveBackground(1)
+
+    const canvasBackgroundColor = () => {
+      const bodyColor = getComputedStyle(document.body).backgroundColor
+      return bodyColor === "rgba(0, 0, 0, 0)" ? "white" : bodyColor
+    }
+
+    const wrapCanvasText = (context, text, maxWidth) => {
+      const wrapped = text.split(/\s+/).reduce(({ lines, line }, word) => {
+        const nextLine = line ? `${line} ${word}` : word
+        return context.measureText(nextLine).width <= maxWidth || !line
+          ? { lines, line: nextLine }
+          : { lines: [...lines, line], line: word }
+      }, { lines: [], line: "" })
+
+      return wrapped.line ? [...wrapped.lines, wrapped.line] : wrapped.lines
+    }
+
+    const cssNumber = (style, property) => parseFloat(style[property]) || 0
+
+    const drawQuoteBox = context => {
+      const rect = quoteBox.getBoundingClientRect()
+      const style = getComputedStyle(quoteBox)
+      const padding = {
+        left: cssNumber(style, "paddingLeft"),
+        right: cssNumber(style, "paddingRight"),
+        top: cssNumber(style, "paddingTop")
+      }
+      const fontSize = cssNumber(style, "fontSize")
+      const lineHeight = parseFloat(style.lineHeight) || fontSize * 1.2
+      const textWidth = rect.width - padding.left - padding.right
+
+      context.fillStyle = style.backgroundColor
+      context.fillRect(rect.left, rect.top, rect.width, rect.height)
+      context.fillStyle = style.color
+      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+      context.textBaseline = "top"
+
+      wrapCanvasText(context, current.quote, textWidth).forEach((line, index) => {
+        context.fillText(line, rect.left + padding.left, rect.top + padding.top + index * lineHeight)
+      })
+    }
+
+    const filenameWords = (text, limit = 5) =>
+      (text || "")
+        .replace(/\.[^.]+$/, "")
+        .match(/[\p{L}\p{N}]+/gu)
+        ?.slice(0, limit)
+        .join("-") || "image"
+
+    const filenamePart = text =>
+      filenameWords(text, 12)
+        .replace(/[^\p{L}\p{N}-]+/gu, "-")
+        .replace(/^-+|-+$/g, "") || "lem-rodeo"
+
+    const downloadFilename = () =>
+      `${filenamePart(current.citation)}-${filenamePart(filenameWords(current.background?.imageTitle || current.background?.title))}.png`
+
+    const downloadScale = (width, height) => {
+      const preferredScale = Math.min(window.devicePixelRatio || 1, DownloadImage.maxScale)
+      const boundedScale = Math.sqrt(DownloadImage.pixelLimit / (width * height))
+
+      return Math.max(1, Math.min(preferredScale, boundedScale))
+    }
+
+    const drawCenteredBackground = (context, image, width, height) =>
+      context.drawImage(image, (width - image.naturalWidth) / 2, (height - image.naturalHeight) / 2)
+
+    const downloadFailed = error => {
+      if (error) console.error("Could not export download image:", error)
+      nudgeQuote()
+    }
+
+    const downloadBlob = blob => {
+      if (!blob) {
+        console.error("Could not create download image")
+        nudgeQuote()
+        return
+      }
+
+      const filename = downloadFilename()
+      const file = typeof File === "function" ? new File([blob], filename, { type: blob.type || "image/png" }) : blob
+      const url = URL.createObjectURL(file)
+      const link = document.createElement("a")
+
+      Object.assign(link, { href: url, download: filename })
+      link.style.display = "none"
+      document.body.append(link)
+      link.click()
+
+      setTimeout(() => {
+        link.remove()
+        URL.revokeObjectURL(url)
+      }, 30000)
+    }
+
+    const downloadCurrentView = () => {
+      if (!current.background?.image) {
+        nudgeQuote()
+        return
+      }
+
+      const width = window.innerWidth
+      const height = window.innerHeight
+      const scale = downloadScale(width, height)
+      const canvas = document.createElement("canvas")
+      const image = current.background.image
+
+      canvas.width = Math.round(width * scale)
+      canvas.height = Math.round(height * scale)
+
+      const context = canvas.getContext("2d")
+      if (!context) return downloadFailed()
+
+      context.scale(scale, scale)
+      context.fillStyle = canvasBackgroundColor()
+      context.fillRect(0, 0, width, height)
+      drawCenteredBackground(context, image, width, height)
+      drawQuoteBox(context)
+
+      try {
+        canvas.toBlob(downloadBlob, "image/png")
+      } catch (error) {
+        downloadFailed(error)
+      }
+    }
+
+    const editableTarget = target =>
+      target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(target.tagName)
+
+    const KeyCommands = new Map([
+      ["?", openInfoModal],
+      ["d", downloadCurrentView],
+      ["l", nextLanguage],
+      ["t", nextTranslation],
+      ["<", previousBackground],
+      [">", nextBackground],
+      ["[", previousBackground],
+      ["]", nextBackground]
+    ])
+
+    const keyCommand = event =>
+      event.code === "Space" ? toggleUserPause : KeyCommands.get(event.key.toLowerCase())
+
+    const handleKeydown = event => {
+      if (event.key === "Escape" && infoModal.open) {
+        event.preventDefault()
+        closeInfoModal()
+        return
+      }
+
+      if (infoModal.open || editableTarget(event.target)) return
+
+      const command = keyCommand(event)
+      if (!command) return
+
+      event.preventDefault()
+      command()
+    }
+
+    infoModalClose.addEventListener("click", closeInfoModal)
+    infoModal.addEventListener("cancel", event => {
+      event.preventDefault()
+      closeInfoModal()
+    })
+    document.addEventListener("keydown", handleKeydown)
+
+    const everyRodeoCycle = action => {
+      setInterval(() => {
+        if (!paused()) action()
+      }, Interval)
+    }
+
+    const startRodeo = () => {
+      plantCornerFurniture()
+      renderKeyLegend()
+      getVerse()
+      queueRandomWikimediaBackground()
+      setRandomColors()
+
+      everyRodeoCycle(queueRandomWikimediaBackground)
+      everyRodeoCycle(setRandomColors)
+    }
+
+    startRodeo()
+  </script>
+</body>
+
+</html>
