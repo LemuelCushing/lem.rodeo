@@ -171,6 +171,7 @@
     }
 
     @keyframes modal-static {
+
       0%,
       87%,
       100% {
@@ -187,6 +188,7 @@
     }
 
     @keyframes modal-cursor {
+
       0%,
       49% {
         opacity: 0.2;
@@ -199,6 +201,7 @@
     }
 
     @keyframes quote-nudge {
+
       0%,
       100% {
         transform: translateX(0);
@@ -218,7 +221,7 @@
       position: fixed;
       top: 50%;
       left: 50%;
-      width: min(500px, calc(100vw - 32px));
+      width: min(640px, calc(100vw - 32px));
       max-height: calc(100vh - 32px);
       margin: 0;
       padding: 16px 18px 13px;
@@ -333,6 +336,7 @@
     }
 
     .key-callout {
+      position: relative;
       display: inline-flex;
       align-items: center;
       gap: 8px;
@@ -350,7 +354,29 @@
 
     .key-callout:nth-child(5) {
       grid-column: 1 / -1;
-      --key-slip: 4px;
+      justify-content: center;
+      --key-slip: 0;
+    }
+
+    .combo-mix {
+      display: inline-flex;
+      align-items: center;
+      gap: 1px;
+      margin-left: 4px;
+      font-family: var(--mono);
+      opacity: 0.5;
+    }
+
+    .combo-mix-plus {
+      font-size: 10px;
+      margin-right: 1px;
+    }
+
+    .combo-mix kbd {
+      --kbd-min-width: 12px;
+      --kbd-padding: 0 3px;
+      --kbd-font: 10px var(--mono);
+      --kbd-shadow: 1px 1px 0 var(--ink);
     }
 
     .info-modal kbd {
@@ -360,6 +386,16 @@
       font: var(--kbd-font, 14px var(--mono));
       text-align: center;
       box-shadow: var(--kbd-shadow, 2px 2px 0 var(--ink));
+    }
+
+    .key-combo-poem {
+      grid-column: 1 / -1;
+      font-family: var(--mono);
+      font-size: 0.7em;
+      line-height: 1.5;
+      text-align: left;
+      margin-top: 14px;
+      opacity: 0.5;
     }
 
     .key-arrow {
@@ -387,6 +423,7 @@
     }
 
     @media (prefers-reduced-motion: reduce) {
+
       .info-modal,
       .info-modal-title::after {
         animation: none;
@@ -403,6 +440,31 @@
       }
     }
 
+    /* white text + mix-blend-mode: difference inverts each pixel against
+       what's behind it, so the flash is always the photographic negative
+       of whatever Wikimedia plate happens to be loaded. */
+    .signal-flash {
+      position: fixed;
+      left: 50%;
+      bottom: 26px;
+      transform: translateX(-50%);
+      font-family: var(--mono);
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: lowercase;
+      color: #fff;
+      mix-blend-mode: difference;
+      opacity: 0;
+      pointer-events: none;
+      white-space: nowrap;
+      transition: opacity 360ms ease-out;
+    }
+
+    .signal-flash.lit {
+      opacity: 1;
+      transition: opacity 90ms ease-in;
+    }
   </style>
 </head>
 
@@ -437,8 +499,10 @@
 
     <ul id="keyMap" class="key-map" aria-label="Keyboard controls"></ul>
 
-    <div class="info-modal-footer"><kbd>esc</kbd><span>lose the signal</span></div>
+    <div class="info-modal-footer"><kbd>esc</kbd><span>back at it</span></div>
   </dialog>
+
+  <div id="signalFlash" class="signal-flash" aria-live="polite"></div>
 
   <script type="module">
     const $ = id => document.getElementById(id)
@@ -459,9 +523,9 @@
     const KeyLegend = [
       { keys: ["Space"], note: "hold them horses" },
       { keys: ["D"], note: "Keep the trout" },
-      { keys: ["L"], note: "borrow a tongue" },
-      { keys: ["T"], note: "trade the witness" },
-      { keys: ["<", ">"], note: "turn the kalpa" }
+      { keys: ["L"], note: "borrow a tongue", combo: true },
+      { keys: ["T"], note: "trade the witness", combo: true },
+      { keys: ["[", "]"], note: "turn the kalpa" }
     ]
     const BaselineTranslation = {
       id: "labs-net",
@@ -566,6 +630,7 @@
         { id: "113", abbreviation: "NIVUK", title: "New International Version (Anglicised)" }
       ],
       he: [
+        { id: "sef-tanakh", abbreviation: "WLC", title: "Westminster Leningrad Codex (Tanakh)" },
         { id: "24", abbreviation: "HD", title: "Habrit Hakhadasha/Haderekh" }
       ],
       de: [
@@ -604,6 +669,7 @@
       Modal: "modal"
     }
 
+    const signalFlash = $("signalFlash")
     const quoteBox = $("quoteBox")
     const infoModal = $("infoModal")
     const infoModalClose = $("infoModalClose")
@@ -719,11 +785,25 @@
     const keycap = key => html`<kbd>${key}</kbd>`
 
     const renderKeyLegend = () => {
-      keyMap.innerHTML = KeyLegend.map(({ keys, note }) => `
+      const comboMix = html`
+        <span class="combo-mix" aria-hidden="true">
+          <span class="combo-mix-plus">+</span><kbd>[</kbd><kbd>]</kbd>
+        </span>
+      `
+
+      const listItems = KeyLegend.map(({ keys, note, combo }) => `
         <li class="key-callout">
-          ${keys.map(keycap).join("")}<span class="key-arrow"></span><span>${note}</span>
+          ${keys.map(keycap).join("")}${combo ? comboMix : ""}<span class="key-arrow"></span><span>${note}</span>
         </li>
       `).join("")
+
+      const poem = html`
+        <li class="key-combo-poem">
+          To swap the talk, not wall instead,<br>let letter unto bracket wed.
+        </li>
+      `
+
+      keyMap.innerHTML = listItems + poem
     }
 
     const cleanedQuote = dirtyHtml => {
@@ -955,26 +1035,45 @@
       return false
     }
 
-    const changeTranslation = async action => {
+    const changeTranslation = async (action, signal) => {
       if (!current.passageId) return nudgeQuote()
 
       const requestId = ++translationRequestId
       const changed = await action(requestId)
 
       if (requestId !== translationRequestId) return
-      if (!changed) nudgeQuote()
+      if (!changed) return nudgeQuote()
+      if (signal) flashSignal(signal())
     }
 
     const currentTranslationIndex = () =>
       current.translation?.id === BaselineTranslation.id ? -1 : current.translationIndexByLanguage[current.languageCode] || 0
 
-    const nextTranslation = () =>
-      changeTranslation(requestId =>
-        tryTranslation(current.languageCode, currentTranslationIndex() + 1, requestId)
+    const stepTranslation = delta =>
+      changeTranslation(
+        requestId => tryTranslation(current.languageCode, currentTranslationIndex() + delta, requestId),
+        () => translationLabel(current.translation)
       )
 
-    const nextLanguage = () =>
-      changeTranslation(requestId => tryLanguage(TranslationLanguages.indexOf(current.languageCode) + 1, requestId))
+    const stepLanguage = delta =>
+      changeTranslation(
+        requestId => tryLanguage(TranslationLanguages.indexOf(current.languageCode) + delta, requestId),
+        () => languageLabel(current.translation)
+      )
+
+    const nextTranslation = () => stepTranslation(1)
+    const previousTranslation = () => stepTranslation(-1)
+    const nextLanguage = () => stepLanguage(1)
+    const previousLanguage = () => stepLanguage(-1)
+
+    let signalFlashTimer = 0
+    const flashSignal = text => {
+      if (!text) return
+      signalFlash.textContent = text
+      signalFlash.classList.add("lit")
+      clearTimeout(signalFlashTimer)
+      signalFlashTimer = setTimeout(() => signalFlash.classList.remove("lit"), 720)
+    }
 
     const setRandomColors = () => {
       const bgColor = randomHexColor()
@@ -996,6 +1095,26 @@
       updateInfoModal()
       setPaused(PauseReason.Modal, true)
       if (!infoModal.open) infoModal.showModal()
+      logPopupOpen()
+    }
+
+    const logPopupOpen = () => {
+      try {
+        const payload = JSON.stringify({
+          citation: current.citation,
+          translation: current.translation?.abbreviation,
+          language: current.translation?.languageTag,
+          passageId: current.passageId,
+          imageTitle: current.background?.imageTitle || current.background?.title,
+          pageUrl: current.background?.pageUrl,
+          imageUrl: current.background?.imageUrl,
+          locale: navigator.language,
+          viewportW: innerWidth,
+          viewportH: innerHeight,
+          dpr: devicePixelRatio
+        })
+        navigator.sendBeacon("/api/log/popup", new Blob([payload], { type: "application/json" }))
+      } catch {}
     }
 
     const closeInfoModal = () => {
@@ -1180,19 +1299,32 @@
     const editableTarget = target =>
       target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT", "BUTTON", "A"].includes(target.tagName)
 
-    const KeyCommands = new Map([
-      ["?", openInfoModal],
-      ["d", downloadCurrentView],
-      ["l", nextLanguage],
-      ["t", nextTranslation],
-      ["<", previousBackground],
-      [">", nextBackground],
-      ["[", previousBackground],
-      ["]", nextBackground]
-    ])
+    // Bindings keyed by event.code (physical key position) so they survive
+    // any keyboard layout — Hebrew, Cyrillic, AZERTY, Dvorak. event.key is
+    // only consulted for the ? help intent, which lives on whatever key
+    // produces the literal "?" character.
+    const StepCodes = {
+      Comma: -1, Period: 1,
+      BracketLeft: -1, BracketRight: 1
+    }
 
-    const keyCommand = event =>
-      event.code === "Space" ? toggleUserPause : KeyCommands.get(event.key.toLowerCase())
+    const ModifierCodes = {
+      KeyT: { id: "t", back: previousTranslation, forward: nextTranslation },
+      KeyL: { id: "l", back: previousLanguage, forward: nextLanguage }
+    }
+
+    const SimpleCodes = {
+      Space: toggleUserPause,
+      KeyD: downloadCurrentView
+    }
+
+    let heldModifier = null
+    let modifierConsumed = false
+
+    const releaseModifier = () => {
+      heldModifier = null
+      modifierConsumed = false
+    }
 
     const handleKeydown = event => {
       if (event.key === "Escape" && infoModal.open) {
@@ -1203,19 +1335,62 @@
 
       if (infoModal.open || editableTarget(event.target)) return
 
-      const command = keyCommand(event)
+      if (event.key === "?") {
+        event.preventDefault()
+        openInfoModal()
+        return
+      }
+
+      const modifier = ModifierCodes[event.code]
+      if (modifier && !event.repeat) {
+        event.preventDefault()
+        if (heldModifier?.id !== modifier.id) {
+          heldModifier = modifier
+          modifierConsumed = false
+        }
+        return
+      }
+
+      const direction = StepCodes[event.code]
+      if (direction) {
+        event.preventDefault()
+        if (event.repeat) return
+        if (heldModifier) {
+          modifierConsumed = true
+            ; (direction < 0 ? heldModifier.back : heldModifier.forward)()
+        } else {
+          ; (direction < 0 ? previousBackground : nextBackground)()
+        }
+        return
+      }
+
+      const command = SimpleCodes[event.code]
       if (!command) return
 
       event.preventDefault()
       command()
     }
 
+    const handleKeyup = event => {
+      const modifier = ModifierCodes[event.code]
+      if (!modifier || heldModifier?.id !== modifier.id) return
+
+      const used = modifierConsumed
+      releaseModifier()
+      if (!used) modifier.forward()
+    }
+
     infoModalClose.addEventListener("click", closeInfoModal)
+    infoModalClose.addEventListener("keydown", event => {
+      if (event.code === "Space" || event.key === " ") event.preventDefault()
+    })
     infoModal.addEventListener("cancel", event => {
       event.preventDefault()
       closeInfoModal()
     })
     document.addEventListener("keydown", handleKeydown)
+    document.addEventListener("keyup", handleKeyup)
+    window.addEventListener("blur", releaseModifier)
 
     const everyRodeoCycle = action => {
       setInterval(() => {

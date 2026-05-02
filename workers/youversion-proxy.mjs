@@ -1,5 +1,28 @@
 const YouVersionApi = "https://api.youversion.com/v1"
+const SefariaApi = "https://www.sefaria.org/api"
 const PassageId = /^[1-3]?[A-Z]{2,3}\.\d{1,3}\.\d{1,3}$/
+
+const SefariaBookByBibleBookId = {
+  GEN: "Genesis", EXO: "Exodus", LEV: "Leviticus", NUM: "Numbers", DEU: "Deuteronomy",
+  JOS: "Joshua", JDG: "Judges", RUT: "Ruth",
+  "1SA": "I_Samuel", "2SA": "II_Samuel",
+  "1KI": "I_Kings", "2KI": "II_Kings",
+  "1CH": "I_Chronicles", "2CH": "II_Chronicles",
+  EZR: "Ezra", NEH: "Nehemiah", EST: "Esther",
+  JOB: "Job", PSA: "Psalms", PRO: "Proverbs", ECC: "Ecclesiastes", SNG: "Song_of_Songs",
+  ISA: "Isaiah", JER: "Jeremiah", LAM: "Lamentations", EZK: "Ezekiel", DAN: "Daniel",
+  HOS: "Hosea", JOL: "Joel", AMO: "Amos", OBA: "Obadiah", JON: "Jonah",
+  MIC: "Micah", NAM: "Nahum", HAB: "Habakkuk", ZEP: "Zephaniah",
+  HAG: "Haggai", ZEC: "Zechariah", MAL: "Malachi"
+}
+
+const SefariaTanakh = {
+  id: "sef-tanakh",
+  abbreviation: "WLC",
+  title: "Westminster Leningrad Codex",
+  languageTag: "he",
+  publisherUrl: "https://www.sefaria.org/"
+}
 
 class YouVersionError extends Error {
   constructor(status, body) {
@@ -14,6 +37,12 @@ export default {
     const url = new URL(request.url)
 
     if (request.method === "OPTIONS") return optionsResponse(request, env)
+
+    if (url.pathname === "/api/log/popup") {
+      if (request.method !== "POST") return errorResponse(request, env, 405, "POST only")
+      return logPopupOpen(request, env, context)
+    }
+
     if (request.method !== "GET") return errorResponse(request, env, 405, "GET only")
 
     if (!env.YVP_APP_KEY) {
@@ -48,6 +77,12 @@ async function verseResponse(request, env, context, url) {
     return errorResponse(request, env, 400, "Passage must look like JHN.3.16")
   }
 
+  if (bibleId.startsWith("sef-")) {
+    return cachedJson(request, env, context, `verse:${bibleId}:${passageId}`, () =>
+      sefariaPassage(bibleId, passageId)
+    )
+  }
+
   return cachedJson(request, env, context, `verse:${bibleId}:${passageId}`, async () => {
     const [passage, bible] = await Promise.all([
       passageJson(env, bibleId, passageId),
@@ -70,6 +105,40 @@ async function verseResponse(request, env, context, url) {
       publisherUrl: bible.publisher_url || bible.youversion_deep_link || ""
     }
   })
+}
+
+async function sefariaPassage(bibleId, passageId) {
+  const [bookId, chapter, verse] = passageId.split(".")
+  const sefariaBook = SefariaBookByBibleBookId[bookId]
+  if (!sefariaBook) throw new YouVersionError(404, `${bookId} is not in the Tanakh`)
+
+  const ref = `${sefariaBook}.${chapter}.${verse}`
+  const response = await fetch(`${SefariaApi}/texts/${ref}?context=0`)
+  if (!response.ok) throw new YouVersionError(response.status, await response.text())
+
+  const data = await response.json()
+  const raw = Array.isArray(data.he) ? data.he.join(" ") : data.he || ""
+  const text = stripSefariaMarkup(raw)
+  if (!text) throw new YouVersionError(404, `no Hebrew text for ${ref}`)
+
+  return {
+    source: "sefaria",
+    passageId,
+    reference: data.ref || `${sefariaBook.replace(/_/g, " ")} ${chapter}:${verse}`,
+    text,
+    translation: SefariaTanakh,
+    copyright: "Westminster Leningrad Codex (CC0). Served via Sefaria.",
+    publisherUrl: SefariaTanakh.publisherUrl
+  }
+}
+
+function stripSefariaMarkup(input) {
+  return String(input)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&[a-z]+;/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim()
 }
 
 async function passageJson(env, bibleId, passageId) {
@@ -197,7 +266,7 @@ function optionsResponse(request, env) {
   return withCors(new Response(null, {
     status: 204,
     headers: {
-      "Access-Control-Allow-Methods": "GET, OPTIONS",
+      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type",
       "Access-Control-Max-Age": "86400"
     }
@@ -227,4 +296,80 @@ function allowedValues(value) {
 
 function compactText(text) {
   return (text || "").replace(/\s+/g, " ").trim()
+}
+
+async function logPopupOpen(request, env, context) {
+  let payload = {}
+  try {
+    const text = await request.text()
+    if (text && text.length <= 2048) payload = JSON.parse(text)
+  } catch {}
+
+  const cf = request.cf || {}
+  const userAgent = request.headers.get("User-Agent") || ""
+
+  const fields = {
+    citation: String(payload.citation || ""),
+    translation: String(payload.translation || ""),
+    language: String(payload.language || ""),
+    passageId: String(payload.passageId || ""),
+    imageTitle: String(payload.imageTitle || ""),
+    pageUrl: String(payload.pageUrl || ""),
+    imageUrl: String(payload.imageUrl || ""),
+    locale: String(payload.locale || ""),
+    country: String(cf.country || ""),
+    city: String(cf.city || ""),
+    region: String(cf.region || ""),
+    timezone: String(cf.timezone || ""),
+    colo: String(cf.colo || ""),
+    userAgent,
+    viewportW: Number(payload.viewportW) || 0,
+    viewportH: Number(payload.viewportH) || 0,
+    dpr: Number(payload.dpr) || 0
+  }
+
+  if (env.POPUP_LOG?.writeDataPoint) {
+    try {
+      env.POPUP_LOG.writeDataPoint({
+        indexes: [fields.citation.slice(0, 96)],
+        blobs: [
+          fields.translation, fields.language, fields.imageTitle, fields.pageUrl,
+          fields.country, fields.city, fields.region, fields.timezone,
+          fields.colo, fields.locale, fields.userAgent, fields.passageId,
+          fields.imageUrl
+        ],
+        doubles: [fields.viewportW, fields.viewportH, fields.dpr]
+      })
+    } catch (error) {
+      console.warn("POPUP_LOG write failed:", error.message)
+    }
+  }
+
+  console.log("popup-open", JSON.stringify(fields))
+
+  if (env.NTFY_TOPIC) {
+    const title = fields.citation || "lem.rodeo"
+    const where = [fields.city, fields.country].filter(Boolean).join(", ")
+    const body = [
+      `${fields.translation || "?"} · ${fields.language || "?"}`,
+      fields.imageTitle && `bg: ${fields.imageTitle}`,
+      where
+    ].filter(Boolean).join("\n")
+
+    context.waitUntil(
+      fetch("https://ntfy.sh/", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          topic: env.NTFY_TOPIC,
+          title,
+          message: body,
+          tags: ["popcorn"],
+          click: fields.pageUrl || "https://lem.rodeo"
+        })
+      }).catch(error => console.warn("ntfy push failed:", error.message))
+    )
+  }
+
+  return withCors(new Response(null, { status: 204 }), request, env)
 }

@@ -36,10 +36,26 @@ Local dev needs a `.dev.vars` at the repo root:
 
 ```text
 YVP_APP_KEY="..."
+NTFY_TOPIC="lem-rodeo-popup-..."   # optional; enables popup-open push notifications
 ```
 
-Pull it from 1Password rather than typing/pasting; never commit it (gitignored
-already).
+Pull these from 1Password rather than typing/pasting; never commit them
+(gitignored already).
+
+### Setting Worker secrets in prod
+
+Use the explicit invocation — a bare `npx wrangler ...` may resolve a
+different binary on first run:
+
+```sh
+RP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest secret put YVP_APP_KEY
+RP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest secret put NTFY_TOPIC
+RP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest secret list
+```
+
+A successful upload ends with `✨ Success! Uploaded secret X`. A line that
+ends in `✖ Enter a secret value:` was cancelled — nothing was written and
+nothing was overwritten.
 
 ## Known gotchas
 
