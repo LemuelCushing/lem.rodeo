@@ -326,6 +326,18 @@
       opacity: 0.72;
     }
 
+    .info-modal-translation-meta {
+      display: block;
+      margin-top: 2px;
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      opacity: 0.55;
+    }
+
+    .info-modal-translation-meta:empty {
+      display: none;
+    }
+
     .key-map {
       display: grid;
       grid-template-columns: max-content max-content;
@@ -440,30 +452,75 @@
       }
     }
 
-    /* white text + mix-blend-mode: difference inverts each pixel against
-       what's behind it, so the flash is always the photographic negative
-       of whatever Wikimedia plate happens to be loaded. */
+    /* The toast is two nested layers. The outer pill applies a
+       backdrop-filter (invert + hue-rotate) so the chip itself paints
+       in colors derived from whatever is behind it — a Wikimedia plate,
+       the page's white margin, anything. The inner span then keeps the
+       mix-blend-mode: difference trick, which now blends against that
+       filtered chip rather than against bare white, so the toast stays
+       legible even when the photo doesn't fill the viewport. */
     .signal-flash {
       position: fixed;
       left: 50%;
       bottom: 26px;
       transform: translateX(-50%);
-      font-family: var(--mono);
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: lowercase;
-      color: #fff;
-      mix-blend-mode: difference;
+      padding: 7px 14px 6px;
+      background: rgba(0, 0, 0, 0.18);
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
+      backdrop-filter: invert(1) hue-rotate(180deg) saturate(1.6) contrast(1.7) brightness(0.7);
+      -webkit-backdrop-filter: invert(1) hue-rotate(180deg) saturate(1.6) contrast(1.7) brightness(0.7);
       opacity: 0;
       pointer-events: none;
-      white-space: nowrap;
       transition: opacity 360ms ease-out;
     }
 
     .signal-flash.lit {
       opacity: 1;
       transition: opacity 90ms ease-in;
+    }
+
+    .signal-flash-stack {
+      position: relative;
+      display: inline-block;
+    }
+
+    .signal-flash-glyph {
+      display: block;
+      font-family: var(--mono);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: lowercase;
+      white-space: nowrap;
+      paint-order: stroke fill;
+      -webkit-text-stroke: 0.5px rgba(0, 0, 0, 0.9);
+      mix-blend-mode: difference;
+    }
+
+    .signal-flash-glyph--main {
+      position: relative;
+      z-index: 1;
+      color: #fff;
+    }
+
+    .signal-flash-glyph--ghost {
+      position: absolute;
+      inset: 0;
+      color: #00e5ff;
+      transform: translate(1.2px, -0.5px);
+      pointer-events: none;
+    }
+
+    @supports not (backdrop-filter: invert(1)) {
+      .signal-flash {
+        background: rgba(0, 0, 0, 0.62);
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+        backdrop-filter: none;
+      }
+      .signal-flash-glyph {
+        mix-blend-mode: normal;
+        -webkit-text-stroke: 0;
+      }
     }
   </style>
 </head>
@@ -483,7 +540,10 @@
 
       <div class="info-modal-row">
         <dt class="info-modal-label">tongue is</dt>
-        <dd><a id="infoModalTranslationLink" href="#" target="_blank" rel="noopener noreferrer">waiting</a></dd>
+        <dd>
+          <a id="infoModalTranslationLink" href="#" target="_blank" rel="noopener noreferrer">waiting</a>
+          <span id="infoModalTranslationMeta" class="info-modal-translation-meta"></span>
+        </dd>
       </div>
 
       <div id="infoModalRightsRow" class="info-modal-row" hidden>
@@ -502,7 +562,12 @@
     <div class="info-modal-footer"><kbd>esc</kbd><span>back at it</span></div>
   </dialog>
 
-  <div id="signalFlash" class="signal-flash" aria-live="polite"></div>
+  <div id="signalFlash" class="signal-flash" aria-live="polite">
+    <span class="signal-flash-stack">
+      <span id="signalFlashGhost" class="signal-flash-glyph signal-flash-glyph--ghost" aria-hidden="true"></span>
+      <span id="signalFlashText" class="signal-flash-glyph signal-flash-glyph--main"></span>
+    </span>
+  </div>
 
   <script type="module">
     const $ = id => document.getElementById(id)
@@ -530,10 +595,11 @@
     const BaselineTranslation = {
       id: "labs-net",
       abbreviation: "NET",
-      title: "NET Bible",
+      title: "New English Translation",
       languageCode: "en",
       languageTag: "en",
       publisherUrl: "https://labs.bible.org/",
+      reference: "https://en.wikipedia.org/wiki/New_English_Translation",
       copyright: ""
     }
     const BibleBookIds = new Map(Object.entries({
@@ -608,49 +674,52 @@
     }))
     const TranslationCatalog = {
       en: [
-        { id: "3034", abbreviation: "BSB", title: "Berean Standard Bible" },
-        { id: "111", abbreviation: "NIV", title: "New International Version" },
-        { id: "110", abbreviation: "NIrV", title: "New International Reader's Version" },
-        { id: "100", abbreviation: "NASB1995", title: "New American Standard Bible - NASB 1995" },
-        { id: "2692", abbreviation: "NASB2020", title: "New American Standard Bible - NASB" },
-        { id: "1588", abbreviation: "AMP", title: "Amplified Bible" },
-        { id: "206", abbreviation: "WEBUS", title: "World English Bible, American English Edition" },
-        { id: "12", abbreviation: "ASV", title: "American Standard Version" },
-        { id: "2163", abbreviation: "GNV", title: "Geneva Bible" },
-        { id: "2660", abbreviation: "LSV", title: "Literal Standard Version" },
-        { id: "1932", abbreviation: "FBV", title: "Free Bible Version" },
-        { id: "2079", abbreviation: "EASY", title: "EasyEnglish Bible 2024" },
+        { id: "3034", abbreviation: "BSB", title: "Berean Standard Bible", reference: "https://en.wikipedia.org/wiki/Berean_Standard_Bible" },
+        { id: "111", abbreviation: "NIV", title: "New International Version", reference: "https://en.wikipedia.org/wiki/New_International_Version" },
+        { id: "110", abbreviation: "NIrV", title: "New International Reader's Version", reference: "https://en.wikipedia.org/wiki/New_International_Reader%27s_Version" },
+        { id: "100", abbreviation: "NASB1995", title: "New American Standard Bible (1995)", reference: "https://en.wikipedia.org/wiki/New_American_Standard_Bible" },
+        { id: "2692", abbreviation: "NASB2020", title: "New American Standard Bible (2020)", reference: "https://en.wikipedia.org/wiki/New_American_Standard_Bible" },
+        { id: "1588", abbreviation: "AMP", title: "Amplified Bible", reference: "https://en.wikipedia.org/wiki/Amplified_Bible" },
+        { id: "206", abbreviation: "WEBUS", title: "World English Bible, American Edition", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
+        { id: "12", abbreviation: "ASV", title: "American Standard Version", reference: "https://en.wikipedia.org/wiki/American_Standard_Version" },
+        { id: "2163", abbreviation: "GNV", title: "Geneva Bible", reference: "https://en.wikipedia.org/wiki/Geneva_Bible" },
+        { id: "2660", abbreviation: "LSV", title: "Literal Standard Version", reference: "https://en.wikipedia.org/wiki/Literal_Standard_Version" },
+        { id: "1932", abbreviation: "FBV", title: "Free Bible Version", reference: "https://en.wikipedia.org/wiki/Free_Bible_Version" },
+        { id: "2079", abbreviation: "EASY", title: "EasyEnglish Bible", reference: "https://en.wikipedia.org/wiki/EasyEnglish_Bible" },
         { id: "2530", abbreviation: "PEV", title: "Plain English Version" },
-        { id: "42", abbreviation: "CPDV", title: "Catholic Public Domain Version" },
-        { id: "130", abbreviation: "TOJB2011", title: "The Orthodox Jewish Bible" },
-        { id: "1209", abbreviation: "WMB", title: "World Messianic Bible" },
-        { id: "1207", abbreviation: "WMBBE", title: "World Messianic Bible British Edition" },
-        { id: "3427", abbreviation: "TCENT", title: "The Text-Critical English New Testament" },
-        { id: "1849", abbreviation: "TPT", title: "The Passion Translation" },
-        { id: "113", abbreviation: "NIVUK", title: "New International Version (Anglicised)" }
+        { id: "42", abbreviation: "CPDV", title: "Catholic Public Domain Version", reference: "https://en.wikipedia.org/wiki/Catholic_Public_Domain_Version" },
+        { id: "130", abbreviation: "TOJB2011", title: "The Orthodox Jewish Bible", reference: "https://en.wikipedia.org/wiki/Orthodox_Jewish_Bible" },
+        { id: "1209", abbreviation: "WMB", title: "World Messianic Bible", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
+        { id: "1207", abbreviation: "WMBBE", title: "World Messianic Bible, British Edition", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
+        { id: "3427", abbreviation: "TCENT", title: "Text-Critical English New Testament" },
+        { id: "1849", abbreviation: "TPT", title: "The Passion Translation", reference: "https://en.wikipedia.org/wiki/The_Passion_Translation" },
+        { id: "113", abbreviation: "NIVUK", title: "New International Version (Anglicised)", reference: "https://en.wikipedia.org/wiki/New_International_Version" }
       ],
       he: [
-        { id: "sef-tanakh", abbreviation: "WLC", title: "Westminster Leningrad Codex (Tanakh)" },
-        { id: "24", abbreviation: "HD", title: "Habrit Hakhadasha/Haderekh" }
+        { id: "sef-tanakh", abbreviation: "WLC", title: "Westminster Leningrad Codex", reference: "https://en.wikipedia.org/wiki/Leningrad_Codex" },
+        { id: "24", abbreviation: "HD", title: "Habrit Hakhadasha / Haderekh" }
       ],
       de: [
-        { id: "73", abbreviation: "Hfa", title: "Hoffnung fuer alle" },
-        { id: "51", abbreviation: "DELUT", title: "Lutherbibel 1912" },
-        { id: "57", abbreviation: "ELB", title: "Darby Unrevidierte Elberfelder" },
-        { id: "58", abbreviation: "ELB71", title: "Elberfelder 1871" },
-        { id: "65", abbreviation: "GANTP", title: "Albrecht NT und Psalmen" },
-        { id: "2200", abbreviation: "TKW", title: "Textbibel von Kautzsch und Weizsaecker" },
-        { id: "2351", abbreviation: "ELBBK", title: "Elberfelder Uebersetzung" }
+        { id: "73", abbreviation: "Hfa", title: "Hoffnung für alle", reference: "https://de.wikipedia.org/wiki/Hoffnung_f%C3%BCr_alle" },
+        { id: "51", abbreviation: "DELUT", title: "Lutherbibel 1912", reference: "https://de.wikipedia.org/wiki/Lutherbibel" },
+        { id: "57", abbreviation: "ELB", title: "Darby Unrevidierte Elberfelder", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" },
+        { id: "58", abbreviation: "ELB71", title: "Elberfelder 1871", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" },
+        { id: "65", abbreviation: "GANTP", title: "Albrecht — NT und Psalmen" },
+        { id: "2200", abbreviation: "TKW", title: "Textbibel von Kautzsch und Weizsäcker", reference: "https://de.wikipedia.org/wiki/Textbibel_von_Kautzsch_und_Weizs%C3%A4cker" },
+        { id: "2351", abbreviation: "ELBBK", title: "Elberfelder Übersetzung", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" }
       ],
       fr: [
-        { id: "21", abbreviation: "BDS", title: "La Bible du Semeur 2015" },
-        { id: "93", abbreviation: "LSG", title: "La Sainte Bible par Louis Segond 1910" },
-        { id: "62", abbreviation: "FMAR", title: "Martin 1744" },
-        { id: "64", abbreviation: "JND", title: "Bible J.N. Darby" },
-        { id: "131", abbreviation: "OST", title: "Ostervald" },
-        { id: "3447", abbreviation: "TFM", title: "Traduction Francaise de Modele" }
+        { id: "21", abbreviation: "BDS", title: "La Bible du Semeur (2015)", reference: "https://fr.wikipedia.org/wiki/Bible_du_Semeur" },
+        { id: "93", abbreviation: "LSG", title: "Bible Louis Segond (1910)", reference: "https://fr.wikipedia.org/wiki/Bible_Louis_Segond" },
+        { id: "62", abbreviation: "FMAR", title: "Bible Martin (1744)", reference: "https://fr.wikipedia.org/wiki/Bible_Martin" },
+        { id: "64", abbreviation: "JND", title: "Bible J.N. Darby", reference: "https://fr.wikipedia.org/wiki/Bible_Darby" },
+        { id: "131", abbreviation: "OST", title: "Bible Ostervald", reference: "https://fr.wikipedia.org/wiki/Bible_Ostervald" },
+        { id: "3447", abbreviation: "TFM", title: "Traduction française de modèle" }
       ]
     }
+    const TranslationsById = Object.fromEntries(
+      Object.values(TranslationCatalog).flat().map(translation => [translation.id, translation])
+    )
     const TranslationLanguages = Object.keys(TranslationCatalog)
     const LanguageNames = {
       en: "English",
@@ -670,6 +739,8 @@
     }
 
     const signalFlash = $("signalFlash")
+    const signalFlashText = $("signalFlashText")
+    const signalFlashGhost = $("signalFlashGhost")
     const quoteBox = $("quoteBox")
     const infoModal = $("infoModal")
     const infoModalClose = $("infoModalClose")
@@ -678,6 +749,7 @@
     const infoModalRights = $("infoModalRights")
     const infoModalRightsRow = $("infoModalRightsRow")
     const infoModalTranslationLink = $("infoModalTranslationLink")
+    const infoModalTranslationMeta = $("infoModalTranslationMeta")
     const keyMap = $("keyMap")
     const pageStyle = document.documentElement.style
 
@@ -748,17 +820,26 @@
     const languageLabel = translation =>
       LanguageNames[translation?.languageCode || current.languageCode] || translation?.languageTag || "unknown"
 
-    const translationLabel = translation =>
-      [translation?.abbreviation, languageLabel(translation)].filter(Boolean).join(" / ") || "waiting"
+    const translationName = translation =>
+      translation?.title || translation?.abbreviation || "waiting"
 
-    const translationFromVerse = verse => ({
-      ...(verse.translation || {}),
-      id: String(verse.translation?.id || ""),
-      copyright: verse.copyright || "",
-      languageCode: verse.translation?.languageTag?.split("-")[0] || current.languageCode,
-      languageTag: verse.translation?.languageTag || current.languageCode,
-      publisherUrl: verse.publisherUrl || verse.translation?.publisherUrl || ""
-    })
+    const translationMeta = translation =>
+      [translation?.abbreviation, languageLabel(translation)].filter(Boolean).join(" · ")
+
+    const translationFromVerse = verse => {
+      const id = String(verse.translation?.id || "")
+      const catalogEntry = TranslationsById[id] || {}
+      return {
+        ...(verse.translation || {}),
+        id,
+        title: catalogEntry.title || verse.translation?.title || "",
+        copyright: verse.copyright || "",
+        languageCode: verse.translation?.languageTag?.split("-")[0] || current.languageCode,
+        languageTag: verse.translation?.languageTag || current.languageCode,
+        publisherUrl: verse.publisherUrl || verse.translation?.publisherUrl || "",
+        reference: catalogEntry.reference || ""
+      }
+    }
 
     const textDirection = translation =>
       translation?.languageCode === "he" || translation?.languageTag === "he" ? "rtl" : "ltr"
@@ -1052,7 +1133,7 @@
     const stepTranslation = delta =>
       changeTranslation(
         requestId => tryTranslation(current.languageCode, currentTranslationIndex() + delta, requestId),
-        () => translationLabel(current.translation)
+        () => translationMeta(current.translation) || translationName(current.translation)
       )
 
     const stepLanguage = delta =>
@@ -1069,7 +1150,8 @@
     let signalFlashTimer = 0
     const flashSignal = text => {
       if (!text) return
-      signalFlash.textContent = text
+      signalFlashText.textContent = text
+      signalFlashGhost.textContent = text
       signalFlash.classList.add("lit")
       clearTimeout(signalFlashTimer)
       signalFlashTimer = setTimeout(() => signalFlash.classList.remove("lit"), 720)
@@ -1125,10 +1207,12 @@
 
     const updateInfoModal = () => {
       infoModalCitation.textContent = current.citation || "waiting"
-      infoModalTranslationLink.textContent = translationLabel(current.translation)
+      infoModalTranslationLink.textContent = translationName(current.translation)
+      infoModalTranslationMeta.textContent = translationMeta(current.translation)
 
-      if (current.translation?.publisherUrl) {
-        infoModalTranslationLink.href = current.translation.publisherUrl
+      const scholarlyHref = current.translation?.reference || current.translation?.publisherUrl
+      if (scholarlyHref) {
+        infoModalTranslationLink.href = scholarlyHref
       } else {
         infoModalTranslationLink.removeAttribute("href")
       }
