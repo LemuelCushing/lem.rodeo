@@ -24,6 +24,65 @@ const SefariaTanakh = {
   publisherUrl: "https://www.sefaria.org/"
 }
 
+// Bulgarian OSIS, pre-parsed from gratis-bible/bible@<pinned> by
+// scripts/build_bulgarian.rb into public/data/bg/<bibleId>/<OsisBook>.json.
+const GratisBibleManifest = {
+  "gb-bulcarigradnt": {
+    abbreviation: "TSAR",
+    title: "Tsarigrad New Testament",
+    languageTag: "bg",
+    publisherUrl: "https://github.com/gratis-bible/bible",
+    copyright: "Public domain. OSIS edition: gratis-bible/bible (CDL Project)."
+  },
+  "gb-bulveren": {
+    abbreviation: "VRN",
+    title: "Veren's Contemporary Bible",
+    languageTag: "bg",
+    publisherUrl: "https://github.com/gratis-bible/bible",
+    copyright: "Veren LTD. OSIS edition: gratis-bible/bible (CDL Project)."
+  }
+}
+
+// YouVersion-style book IDs → OSIS osisID prefixes used by gratis-bible.
+const OsisBookByBibleBookId = {
+  GEN: "Gen", EXO: "Exod", LEV: "Lev", NUM: "Num", DEU: "Deut",
+  JOS: "Josh", JDG: "Judg", RUT: "Ruth",
+  "1SA": "1Sam", "2SA": "2Sam", "1KI": "1Kgs", "2KI": "2Kgs",
+  "1CH": "1Chr", "2CH": "2Chr", EZR: "Ezra", NEH: "Neh", EST: "Esth",
+  JOB: "Job", PSA: "Ps", PRO: "Prov", ECC: "Eccl", SNG: "Song",
+  ISA: "Isa", JER: "Jer", LAM: "Lam", EZK: "Ezek", DAN: "Dan",
+  HOS: "Hos", JOL: "Joel", AMO: "Amos", OBA: "Obad", JON: "Jonah",
+  MIC: "Mic", NAM: "Nah", HAB: "Hab", ZEP: "Zeph", HAG: "Hag",
+  ZEC: "Zech", MAL: "Mal",
+  MAT: "Matt", MRK: "Mark", LUK: "Luke", JHN: "John", ACT: "Acts",
+  ROM: "Rom", "1CO": "1Cor", "2CO": "2Cor", GAL: "Gal", EPH: "Eph",
+  PHP: "Phil", COL: "Col", "1TH": "1Thess", "2TH": "2Thess",
+  "1TI": "1Tim", "2TI": "2Tim", TIT: "Titus", PHM: "Phlm",
+  HEB: "Heb", JAS: "Jas", "1PE": "1Pet", "2PE": "2Pet",
+  "1JN": "1John", "2JN": "2John", "3JN": "3John", JUD: "Jude", REV: "Rev"
+}
+
+// Native Bulgarian book labels for the citation line.
+const BulgarianBookNames = {
+  GEN: "Битие", EXO: "Изход", LEV: "Левит", NUM: "Числа", DEU: "Второзаконие",
+  JOS: "Иисус Навиев", JDG: "Съдии", RUT: "Рут",
+  "1SA": "1 Царе", "2SA": "2 Царе", "1KI": "3 Царе", "2KI": "4 Царе",
+  "1CH": "1 Летописи", "2CH": "2 Летописи", EZR: "Ездра", NEH: "Неемия", EST: "Естир",
+  JOB: "Йов", PSA: "Псалми", PRO: "Притчи", ECC: "Еклесиаст", SNG: "Песен на песните",
+  ISA: "Исая", JER: "Еремия", LAM: "Плачът на Еремия", EZK: "Езекиил", DAN: "Даниил",
+  HOS: "Осия", JOL: "Йоил", AMO: "Амос", OBA: "Авдий", JON: "Йона",
+  MIC: "Михей", NAM: "Наум", HAB: "Авакум", ZEP: "Софония", HAG: "Агей",
+  ZEC: "Захария", MAL: "Малахия",
+  MAT: "Матей", MRK: "Марк", LUK: "Лука", JHN: "Йоан", ACT: "Деяния",
+  ROM: "Римляни", "1CO": "1 Коринтяни", "2CO": "2 Коринтяни", GAL: "Галатяни",
+  EPH: "Ефесяни", PHP: "Филипяни", COL: "Колосяни",
+  "1TH": "1 Солунци", "2TH": "2 Солунци", "1TI": "1 Тимотей", "2TI": "2 Тимотей",
+  TIT: "Тит", PHM: "Филимон", HEB: "Евреи", JAS: "Яков",
+  "1PE": "1 Петрово", "2PE": "2 Петрово",
+  "1JN": "1 Йоаново", "2JN": "2 Йоаново", "3JN": "3 Йоаново",
+  JUD: "Юда", REV: "Откровение"
+}
+
 class YouVersionError extends Error {
   constructor(status, body) {
     super(`YouVersion ${status}: ${body.slice(0, 240)}`)
@@ -88,6 +147,12 @@ async function verseResponse(request, env, context, url) {
     )
   }
 
+  if (bibleId.startsWith("gb-")) {
+    return cachedJson(request, env, context, `verse:${bibleId}:${passageId}`, () =>
+      gratisBiblePassage(env, request, bibleId, passageId)
+    )
+  }
+
   return cachedJson(request, env, context, `verse:${bibleId}:${passageId}`, async () => {
     const [passage, bible] = await Promise.all([
       passageJson(env, bibleId, passageId),
@@ -144,6 +209,33 @@ function stripSefariaMarkup(input) {
     .replace(/&[a-z]+;/gi, " ")
     .replace(/\s+/g, " ")
     .trim()
+}
+
+async function gratisBiblePassage(env, request, bibleId, passageId) {
+  const manifest = GratisBibleManifest[bibleId]
+  if (!manifest) throw new YouVersionError(404, `${bibleId} is not a gratis-bible source`)
+
+  const [bookId, chapter, verse] = passageId.split(".")
+  const osisBook = OsisBookByBibleBookId[bookId]
+  if (!osisBook) throw new YouVersionError(404, `${bookId} is not a known book`)
+
+  const assetUrl = new URL(`/data/bg/${bibleId}/${osisBook}.json`, request.url)
+  const response = await env.ASSETS.fetch(assetUrl)
+  if (!response.ok) throw new YouVersionError(404, `${bibleId} does not include ${osisBook}`)
+
+  const verses = await response.json()
+  const text = verses[`${chapter}.${verse}`]
+  if (!text) throw new YouVersionError(404, `no verse ${passageId} in ${bibleId}`)
+
+  return {
+    source: "gratis-bible",
+    passageId,
+    reference: `${BulgarianBookNames[bookId] || osisBook} ${chapter}:${verse}`,
+    text,
+    translation: { id: bibleId, ...manifest },
+    copyright: manifest.copyright,
+    publisherUrl: manifest.publisherUrl
+  }
 }
 
 async function passageJson(env, bibleId, passageId) {
@@ -361,7 +453,12 @@ async function logEvent(kind, request, env, context) {
 
   console.log(variant.consoleLabel, JSON.stringify(fields))
 
-  if (env.NTFY_TOPIC) {
+  // Both topic and token are required: the production topic is reserved on the
+  // Supporter tier ("Only I can publish and subscribe"), so anonymous publishes
+  // always 403. Skipping when either is unset keeps local-dev logs quiet.
+  // `LEM_NTFY_DISABLED` is a dev override — `npm run dev` sets it so a populated
+  // .dev.vars doesn't fire pushes; `npm run dev:ntfy` leaves it unset.
+  if (env.NTFY_TOPIC && env.NTFY_TOKEN && !env.LEM_NTFY_DISABLED) {
     const title = fields.citation || variant.fallbackTitle
     const where = [fields.city, fields.country].filter(Boolean).join(", ")
     const body = [
@@ -370,18 +467,31 @@ async function logEvent(kind, request, env, context) {
       where
     ].filter(Boolean).join("\n")
 
+    // Posting to /<topic> with header metadata (rather than JSON-to-root). The
+    // JSON-root form silently 200'd-but-dropped from CF colo IPs even with valid
+    // Bearer auth. The /<topic> form is what `curl -d ... ntfy.sh/topic` does
+    // and was confirmed to deliver. Non-ASCII (Hebrew, Bulgarian, …) in the title
+    // travels via UTF-8 in the header value — ntfy accepts it.
+    const headers = {
+      "Title": title,
+      "Tags": variant.ntfyTag,
+      "Click": fields.pageUrl || "https://lem.rodeo",
+      "User-Agent": "lem.rodeo-worker/1.0 (+https://lem.rodeo)",
+      "Authorization": `Bearer ${env.NTFY_TOKEN}`
+    }
+
     context.waitUntil(
-      fetch("https://ntfy.sh/", {
+      fetch(`https://ntfy.sh/${encodeURIComponent(env.NTFY_TOPIC)}`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          topic: env.NTFY_TOPIC,
-          title,
-          message: body,
-          tags: [variant.ntfyTag],
-          click: fields.pageUrl || "https://lem.rodeo"
+        headers,
+        body
+      })
+        .then(async response => {
+          if (response.ok) return console.log(`ntfy push ok status=${response.status}`)
+          const detail = (await response.text()).slice(0, 200)
+          console.warn(`ntfy push FAILED status=${response.status} body=${detail}`)
         })
-      }).catch(error => console.warn("ntfy push failed:", error.message))
+        .catch(error => console.warn("ntfy push errored:", error.message))
     )
   }
 

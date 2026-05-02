@@ -3,8 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "bundle exec ruby scripts/build_bulgarian.rb",
+    "dev": "test -f public/data/bg/gb-bulveren/Gen.json || npm run build && npm run worker:dev",
+    "dev:ntfy": "test -f public/data/bg/gb-bulveren/Gen.json || npm run build && npm run worker:dev:ntfy",
+    "deploy": "npm run worker:deploy && npm run site:deploy",
     "site:deploy": "surge ./public lem.rodeo",
-    "worker:dev": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest dev --port 8788",
+    "worker:dev": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest dev --port 8788 --var LEM_NTFY_DISABLED:1",
+    "worker:dev:ntfy": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest dev --port 8788",
     "worker:deploy": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest deploy",
     "worker:tail": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest tail",
     "worker:version": "SHARP_IGNORE_GLOBAL_LIBVIPS=1 npx --yes wrangler@latest --version"

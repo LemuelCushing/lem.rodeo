@@ -6,8 +6,8 @@ workers_dev = false
 routes = [{ pattern = "lem.rodeo/api/*", zone_name = "lem.rodeo" }]
 
 [vars]
-YVP_ALLOWED_BIBLE_IDS = "12,21,24,42,51,57,58,62,64,65,73,93,100,110,111,113,130,131,206,1207,1209,1588,1849,1932,2079,2163,2200,2351,2530,2660,2692,3034,3427,3447,sef-tanakh"
-YVP_ALLOWED_LANGUAGES = "en,he,de,fr"
+YVP_ALLOWED_BIBLE_IDS = "12,21,24,42,51,57,58,62,64,65,73,93,100,110,111,113,130,131,206,1207,1209,1588,1849,1932,2079,2163,2200,2351,2530,2660,2692,3034,3427,3447,sef-tanakh,gb-bulcarigradnt,gb-bulveren"
+YVP_ALLOWED_LANGUAGES = "en,he,de,fr,bg"
 YVP_ALLOWED_ORIGINS = "https://lem.rodeo,http://localhost:8788,http://127.0.0.1:8788"
 
 [assets]

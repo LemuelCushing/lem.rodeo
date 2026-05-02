@@ -39,7 +39,64 @@
       padding: 10px 0px;
       margin: 30px;
       overflow-wrap: anywhere;
+      position: relative;
+      z-index: 10;
     }
+
+    #bgLayer {
+      position: fixed;
+      inset: 0;
+      z-index: 5;
+      background: no-repeat center center;
+      background-size: auto;
+      pointer-events: none;
+    }
+
+    #noiseOverlay {
+      position: fixed;
+      inset: 0;
+      z-index: 1;
+      pointer-events: none;
+      opacity: 1;
+      transition: opacity 500ms ease-out;
+    }
+
+    #noiseOverlay.dismissed {
+      opacity: 0;
+    }
+
+    #noiseSvg {
+      position: absolute;
+      left: 0;
+      top: -25%;
+      width: 100%;
+      height: 150%;
+      mix-blend-mode: multiply;
+      opacity: 0.5;
+      animation: noiseDrift 2.6s linear infinite;
+    }
+
+    .scanBand {
+      position: absolute;
+      mix-blend-mode: multiply;
+      pointer-events: none;
+      will-change: transform;
+    }
+
+    @keyframes noiseDrift {
+      0%   { transform: translate3d(0, 0, 0); }
+      25%  { transform: translate3d(-2%, 3%, 0); }
+      50%  { transform: translate3d(1.5%, -2%, 0); }
+      75%  { transform: translate3d(-1%, 2.5%, 0); }
+      100% { transform: translate3d(0, 0, 0); }
+    }
+
+    @keyframes sweepDown { 0% { transform: translate(var(--off-x, 0), -120%); } 100% { transform: translate(var(--off-x, 0), calc(100vh + 20vh)); } }
+    @keyframes sweepUp   { 0% { transform: translate(var(--off-x, 0), calc(100vh + 20vh)); } 100% { transform: translate(var(--off-x, 0), -120%); } }
+    @keyframes sweepRight { 0% { transform: translate(-120%, var(--off-y, 0)); } 100% { transform: translate(calc(100vw + 20vw), var(--off-y, 0)); } }
+    @keyframes sweepLeft  { 0% { transform: translate(calc(100vw + 20vw), var(--off-y, 0)); } 100% { transform: translate(-120%, var(--off-y, 0)); } }
+    @keyframes sweepDiagDown { 0% { transform: rotate(var(--rot, -18deg)) translate(-80vw, -30vh); } 100% { transform: rotate(var(--rot, -18deg)) translate(80vw, 30vh); } }
+    @keyframes sweepDiagUp   { 0% { transform: rotate(var(--rot, 18deg))  translate(-80vw, 30vh); }  100% { transform: rotate(var(--rot, 18deg))  translate(80vw, -30vh); } }
 
     .box,
     .info-hint-layer,
@@ -62,6 +119,7 @@
       right: auto;
       bottom: auto;
       left: auto;
+      z-index: 10;
     }
 
     .corner[data-y="top"] {
@@ -219,6 +277,7 @@
     .info-modal {
       box-sizing: border-box;
       position: fixed;
+      z-index: 20;
       top: 50%;
       left: 50%;
       width: min(640px, calc(100vw - 32px));
@@ -461,6 +520,7 @@
        legible even when the photo doesn't fill the viewport. */
     .signal-flash {
       position: fixed;
+      z-index: 15;
       left: 50%;
       bottom: 26px;
       transform: translateX(-50%);
@@ -569,6 +629,38 @@
     </span>
   </div>
 
+  <div id="noiseOverlay" aria-hidden="true">
+    <svg id="noiseSvg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+      <filter id="grain">
+        <feTurbulence id="grainTurbulence" type="fractalNoise"
+          baseFrequency="0.9" numOctaves="3" stitchTiles="stitch"/>
+        <feColorMatrix type="saturate" values="0"/>
+      </filter>
+      <rect width="100%" height="100%" filter="url(#grain)"/>
+    </svg>
+    <svg id="glitchDefs" xmlns="http://www.w3.org/2000/svg" width="0" height="0">
+      <defs>
+        <filter id="bandGlitch0" x="-30%" y="-50%" width="160%" height="200%" color-interpolation-filters="sRGB">
+          <feTurbulence id="bandTurb0" type="fractalNoise" baseFrequency="0.06 0.5" numOctaves="2" seed="1"/>
+          <feDisplacementMap in="SourceGraphic" scale="60" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <filter id="bandGlitch1" x="-30%" y="-50%" width="160%" height="200%" color-interpolation-filters="sRGB">
+          <feTurbulence id="bandTurb1" type="fractalNoise" baseFrequency="0.03 0.7" numOctaves="1" seed="2"/>
+          <feDisplacementMap in="SourceGraphic" scale="90" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <filter id="bandGlitch2" x="-30%" y="-50%" width="160%" height="200%" color-interpolation-filters="sRGB">
+          <feTurbulence id="bandTurb2" type="turbulence" baseFrequency="0.12 0.18" numOctaves="2" seed="3"/>
+          <feDisplacementMap in="SourceGraphic" scale="38" xChannelSelector="R" yChannelSelector="G"/>
+        </filter>
+        <filter id="bandGlitch3" x="-30%" y="-50%" width="160%" height="200%" color-interpolation-filters="sRGB">
+          <feTurbulence id="bandTurb3" type="fractalNoise" baseFrequency="0.02 0.9" numOctaves="2" seed="4"/>
+          <feDisplacementMap in="SourceGraphic" scale="120" xChannelSelector="R" yChannelSelector="B"/>
+        </filter>
+      </defs>
+    </svg>
+  </div>
+  <div id="bgLayer" aria-hidden="true"></div>
+
   <script type="module">
     const $ = id => document.getElementById(id)
     const html = String.raw
@@ -600,7 +692,8 @@
       languageTag: "en",
       publisherUrl: "https://labs.bible.org/",
       reference: "https://en.wikipedia.org/wiki/New_English_Translation",
-      copyright: ""
+      copyright: "",
+      year: "2005"
     }
     const BibleBookIds = new Map(Object.entries({
       "Genesis": "GEN",
@@ -674,47 +767,51 @@
     }))
     const TranslationCatalog = {
       en: [
-        { id: "3034", abbreviation: "BSB", title: "Berean Standard Bible", reference: "https://en.wikipedia.org/wiki/Berean_Standard_Bible" },
-        { id: "111", abbreviation: "NIV", title: "New International Version", reference: "https://en.wikipedia.org/wiki/New_International_Version" },
-        { id: "110", abbreviation: "NIrV", title: "New International Reader's Version", reference: "https://en.wikipedia.org/wiki/New_International_Reader%27s_Version" },
-        { id: "100", abbreviation: "NASB1995", title: "New American Standard Bible (1995)", reference: "https://en.wikipedia.org/wiki/New_American_Standard_Bible" },
-        { id: "2692", abbreviation: "NASB2020", title: "New American Standard Bible (2020)", reference: "https://en.wikipedia.org/wiki/New_American_Standard_Bible" },
-        { id: "1588", abbreviation: "AMP", title: "Amplified Bible", reference: "https://en.wikipedia.org/wiki/Amplified_Bible" },
-        { id: "206", abbreviation: "WEBUS", title: "World English Bible, American Edition", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
-        { id: "12", abbreviation: "ASV", title: "American Standard Version", reference: "https://en.wikipedia.org/wiki/American_Standard_Version" },
-        { id: "2163", abbreviation: "GNV", title: "Geneva Bible", reference: "https://en.wikipedia.org/wiki/Geneva_Bible" },
-        { id: "2660", abbreviation: "LSV", title: "Literal Standard Version", reference: "https://en.wikipedia.org/wiki/Literal_Standard_Version" },
-        { id: "1932", abbreviation: "FBV", title: "Free Bible Version", reference: "https://en.wikipedia.org/wiki/Free_Bible_Version" },
-        { id: "2079", abbreviation: "EASY", title: "EasyEnglish Bible", reference: "https://en.wikipedia.org/wiki/EasyEnglish_Bible" },
-        { id: "2530", abbreviation: "PEV", title: "Plain English Version" },
-        { id: "42", abbreviation: "CPDV", title: "Catholic Public Domain Version", reference: "https://en.wikipedia.org/wiki/Catholic_Public_Domain_Version" },
-        { id: "130", abbreviation: "TOJB2011", title: "The Orthodox Jewish Bible", reference: "https://en.wikipedia.org/wiki/Orthodox_Jewish_Bible" },
-        { id: "1209", abbreviation: "WMB", title: "World Messianic Bible", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
-        { id: "1207", abbreviation: "WMBBE", title: "World Messianic Bible, British Edition", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
-        { id: "3427", abbreviation: "TCENT", title: "Text-Critical English New Testament" },
-        { id: "1849", abbreviation: "TPT", title: "The Passion Translation", reference: "https://en.wikipedia.org/wiki/The_Passion_Translation" },
-        { id: "113", abbreviation: "NIVUK", title: "New International Version (Anglicised)", reference: "https://en.wikipedia.org/wiki/New_International_Version" }
+        { id: "3034", abbreviation: "BSB", title: "Berean Standard Bible", year: "2016", reference: "https://en.wikipedia.org/wiki/Berean_Standard_Bible" },
+        { id: "111", abbreviation: "NIV", title: "New International Version", year: "2011", reference: "https://en.wikipedia.org/wiki/New_International_Version" },
+        { id: "110", abbreviation: "NIrV", title: "New International Reader's Version", year: "2014", reference: "https://en.wikipedia.org/wiki/New_International_Reader%27s_Version" },
+        { id: "100", abbreviation: "NASB1995", title: "New American Standard Bible (1995)", year: "1995", reference: "https://en.wikipedia.org/wiki/New_American_Standard_Bible" },
+        { id: "2692", abbreviation: "NASB2020", title: "New American Standard Bible (2020)", year: "2020", reference: "https://en.wikipedia.org/wiki/New_American_Standard_Bible" },
+        { id: "1588", abbreviation: "AMP", title: "Amplified Bible", year: "2015", reference: "https://en.wikipedia.org/wiki/Amplified_Bible" },
+        { id: "206", abbreviation: "WEBUS", title: "World English Bible, American Edition", year: "2000", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
+        { id: "12", abbreviation: "ASV", title: "American Standard Version", year: "1901", reference: "https://en.wikipedia.org/wiki/American_Standard_Version" },
+        { id: "2163", abbreviation: "GNV", title: "Geneva Bible", year: "1599", reference: "https://en.wikipedia.org/wiki/Geneva_Bible" },
+        { id: "2660", abbreviation: "LSV", title: "Literal Standard Version", year: "2020", reference: "https://en.wikipedia.org/wiki/Literal_Standard_Version" },
+        { id: "1932", abbreviation: "FBV", title: "Free Bible Version", year: "2018", reference: "https://en.wikipedia.org/wiki/Free_Bible_Version" },
+        { id: "2079", abbreviation: "EASY", title: "EasyEnglish Bible", year: "2018", reference: "https://en.wikipedia.org/wiki/EasyEnglish_Bible" },
+        { id: "2530", abbreviation: "PEV", title: "Plain English Version", year: "2003" },
+        { id: "42", abbreviation: "CPDV", title: "Catholic Public Domain Version", year: "2009", reference: "https://en.wikipedia.org/wiki/Catholic_Public_Domain_Version" },
+        { id: "130", abbreviation: "TOJB2011", title: "The Orthodox Jewish Bible", year: "2011", reference: "https://en.wikipedia.org/wiki/Orthodox_Jewish_Bible" },
+        { id: "1209", abbreviation: "WMB", title: "World Messianic Bible", year: "2000", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
+        { id: "1207", abbreviation: "WMBBE", title: "World Messianic Bible, British Edition", year: "2000", reference: "https://en.wikipedia.org/wiki/World_English_Bible" },
+        { id: "3427", abbreviation: "TCENT", title: "Text-Critical English New Testament", year: "2017" },
+        { id: "1849", abbreviation: "TPT", title: "The Passion Translation", year: "2017", reference: "https://en.wikipedia.org/wiki/The_Passion_Translation" },
+        { id: "113", abbreviation: "NIVUK", title: "New International Version (Anglicised)", year: "2011", reference: "https://en.wikipedia.org/wiki/New_International_Version" }
       ],
       he: [
-        { id: "sef-tanakh", abbreviation: "WLC", title: "Westminster Leningrad Codex", reference: "https://en.wikipedia.org/wiki/Leningrad_Codex" },
-        { id: "24", abbreviation: "HD", title: "Habrit Hakhadasha / Haderekh" }
+        { id: "sef-tanakh", abbreviation: "WLC", title: "Westminster Leningrad Codex", year: "~1008", reference: "https://en.wikipedia.org/wiki/Leningrad_Codex" },
+        { id: "24", abbreviation: "HD", title: "Habrit Hakhadasha / Haderekh", year: "1976" }
       ],
       de: [
-        { id: "73", abbreviation: "Hfa", title: "Hoffnung für alle", reference: "https://de.wikipedia.org/wiki/Hoffnung_f%C3%BCr_alle" },
-        { id: "51", abbreviation: "DELUT", title: "Lutherbibel 1912", reference: "https://de.wikipedia.org/wiki/Lutherbibel" },
-        { id: "57", abbreviation: "ELB", title: "Darby Unrevidierte Elberfelder", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" },
-        { id: "58", abbreviation: "ELB71", title: "Elberfelder 1871", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" },
-        { id: "65", abbreviation: "GANTP", title: "Albrecht — NT und Psalmen" },
-        { id: "2200", abbreviation: "TKW", title: "Textbibel von Kautzsch und Weizsäcker", reference: "https://de.wikipedia.org/wiki/Textbibel_von_Kautzsch_und_Weizs%C3%A4cker" },
-        { id: "2351", abbreviation: "ELBBK", title: "Elberfelder Übersetzung", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" }
+        { id: "73", abbreviation: "Hfa", title: "Hoffnung für alle", year: "2015", reference: "https://de.wikipedia.org/wiki/Hoffnung_f%C3%BCr_alle" },
+        { id: "51", abbreviation: "DELUT", title: "Lutherbibel 1912", year: "1912", reference: "https://de.wikipedia.org/wiki/Lutherbibel" },
+        { id: "57", abbreviation: "ELB", title: "Darby Unrevidierte Elberfelder", year: "1871", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" },
+        { id: "58", abbreviation: "ELB71", title: "Elberfelder 1871", year: "1871", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" },
+        { id: "65", abbreviation: "GANTP", title: "Albrecht — NT und Psalmen", year: "1920" },
+        { id: "2200", abbreviation: "TKW", title: "Textbibel von Kautzsch und Weizsäcker", year: "1899", reference: "https://de.wikipedia.org/wiki/Textbibel_von_Kautzsch_und_Weizs%C3%A4cker" },
+        { id: "2351", abbreviation: "ELBBK", title: "Elberfelder Übersetzung", year: "2003", reference: "https://de.wikipedia.org/wiki/Elberfelder_Bibel" }
       ],
       fr: [
-        { id: "21", abbreviation: "BDS", title: "La Bible du Semeur (2015)", reference: "https://fr.wikipedia.org/wiki/Bible_du_Semeur" },
-        { id: "93", abbreviation: "LSG", title: "Bible Louis Segond (1910)", reference: "https://fr.wikipedia.org/wiki/Bible_Louis_Segond" },
-        { id: "62", abbreviation: "FMAR", title: "Bible Martin (1744)", reference: "https://fr.wikipedia.org/wiki/Bible_Martin" },
-        { id: "64", abbreviation: "JND", title: "Bible J.N. Darby", reference: "https://fr.wikipedia.org/wiki/Bible_Darby" },
-        { id: "131", abbreviation: "OST", title: "Bible Ostervald", reference: "https://fr.wikipedia.org/wiki/Bible_Ostervald" },
+        { id: "21", abbreviation: "BDS", title: "La Bible du Semeur", year: "2015", reference: "https://fr.wikipedia.org/wiki/Bible_du_Semeur" },
+        { id: "93", abbreviation: "LSG", title: "Bible Louis Segond", year: "1910", reference: "https://fr.wikipedia.org/wiki/Bible_Louis_Segond" },
+        { id: "62", abbreviation: "FMAR", title: "Bible Martin", year: "1744", reference: "https://fr.wikipedia.org/wiki/Bible_Martin" },
+        { id: "64", abbreviation: "JND", title: "Bible J.N. Darby", year: "1872", reference: "https://fr.wikipedia.org/wiki/Bible_Darby" },
+        { id: "131", abbreviation: "OST", title: "Bible Ostervald", year: "1881", reference: "https://fr.wikipedia.org/wiki/Bible_Ostervald" },
         { id: "3447", abbreviation: "TFM", title: "Traduction française de modèle" }
+      ],
+      bg: [
+        { id: "gb-bulveren", abbreviation: "VRN", title: "Veren's Contemporary Bible", year: "2000", reference: "https://en.wikipedia.org/wiki/Bulgarian_Bible" },
+        { id: "gb-bulcarigradnt", abbreviation: "TSAR", title: "Tsarigrad New Testament", year: "1871", reference: "https://en.wikipedia.org/wiki/Bulgarian_Bible#Tsarigrad_Bible" }
       ]
     }
     const TranslationsById = Object.fromEntries(
@@ -725,7 +822,8 @@
       en: "English",
       he: "Hebrew",
       de: "German",
-      fr: "French"
+      fr: "French",
+      bg: "Bulgarian"
     }
     const SampleVerse = {
       bookname: "Job",
@@ -751,7 +849,7 @@
     const infoModalTranslationLink = $("infoModalTranslationLink")
     const infoModalTranslationMeta = $("infoModalTranslationMeta")
     const keyMap = $("keyMap")
-    const pageStyle = document.documentElement.style
+    const pageStyle = $("bgLayer").style
 
     const pauseReasons = new Set()
     const current = {
@@ -778,6 +876,10 @@
         return this.index === this.newest
       }
 
+      hasAny() {
+        return this.records.length > 0
+      }
+
       append(record) {
         const shouldFollow = this.followingLiveEdge
         this.records.push(record)
@@ -798,6 +900,136 @@
     const backgroundTrail = new BackgroundTrail()
 
     const json = url => fetch(url).then(response => response.json())
+
+    const FirstLoadFetchTimeoutMs = 4000
+    const SteadyStateFetchTimeoutMs = 16000
+    let firstLoadInFlight = true
+
+    const fetchWithTimeout = (url, ms) => {
+      const timeout = ms ?? (firstLoadInFlight ? FirstLoadFetchTimeoutMs : SteadyStateFetchTimeoutMs)
+      return fetch(url, { signal: AbortSignal.timeout(timeout) }).then(response => response.json())
+    }
+
+    const NoiseSeedInterval = 80
+    const MinPreviewDwellMs = 650
+    const ScanBandFilterCount = 4
+
+    const noiseOverlay = $("noiseOverlay")
+    const grainTurbulence = $("grainTurbulence")
+    let noiseSeedTimer = null
+    let previewStartedAt = 0
+
+    const reseedGlitchFilters = () => {
+      for (let i = 0; i < ScanBandFilterCount; i++) {
+        $(`bandTurb${i}`)?.setAttribute("seed", randomInteger({ min: 1, max: 9999 }))
+      }
+    }
+
+    const buildScanBands = () => {
+      noiseOverlay.querySelectorAll(".scanBand").forEach(band => band.remove())
+
+      const bandCount = randomInteger({ min: 4, max: 7 })
+      const directions = ["down", "up", "right", "left", "diagDown", "diagUp"]
+      const animationByDirection = {
+        down: "sweepDown", up: "sweepUp",
+        right: "sweepRight", left: "sweepLeft",
+        diagDown: "sweepDiagDown", diagUp: "sweepDiagUp"
+      }
+
+      for (let i = 0; i < bandCount; i++) {
+        const direction = directions[randomInteger({ min: 0, max: directions.length - 1 })]
+        const filterIndex = randomInteger({ min: 0, max: ScanBandFilterCount - 1 })
+        const duration = (randomInteger({ min: 110, max: 340 }) / 100).toFixed(2)
+        const delay = (randomInteger({ min: 0, max: 250 }) / 100).toFixed(2)
+        // Faint ranges — even the densest band stays well under what a flat
+        // 0.34×0.80 rectangle would render. Real glitch noise is mostly thin.
+        const fillAlpha = (randomInteger({ min: 4, max: 14 }) / 100).toFixed(2)
+        const opacity = (randomInteger({ min: 18, max: 42 }) / 100).toFixed(2)
+        const isHorizontal = direction === "down" || direction === "up"
+        const isVertical = direction === "right" || direction === "left"
+        const isDiagonal = direction === "diagDown" || direction === "diagUp"
+
+        // Soft-edged band: gradient across thickness so the band tapers
+        // perpendicular to its motion, then a mask along its length so the ends
+        // dissolve organically rather than ending in a hard rectangle.
+        const peakStop = randomInteger({ min: 35, max: 60 })
+        const thicknessAxis = isVertical ? "to right" : "to bottom"
+        const lengthAxis = isVertical ? "to bottom" : "to right"
+        const fadeIn = randomInteger({ min: 8, max: 28 })
+        const fadeOut = 100 - randomInteger({ min: 8, max: 28 })
+        const breakChance = Math.random()
+        const lengthMask = breakChance < 0.35
+          ? `linear-gradient(${lengthAxis}, transparent 0%, black ${fadeIn}%, black ${randomInteger({ min: 35, max: 45 })}%, transparent ${randomInteger({ min: 48, max: 56 })}%, black ${randomInteger({ min: 60, max: 72 })}%, black ${fadeOut}%, transparent 100%)`
+          : `linear-gradient(${lengthAxis}, transparent 0%, black ${fadeIn}%, black ${fadeOut}%, transparent 100%)`
+
+        const band = document.createElement("div")
+        band.className = "scanBand"
+        const css = {
+          background: `linear-gradient(${thicknessAxis}, transparent 0%, rgba(0,0,0,${fillAlpha}) ${peakStop}%, transparent 100%)`,
+          filter: `url(#bandGlitch${filterIndex}) contrast(1.4)`,
+          maskImage: lengthMask,
+          webkitMaskImage: lengthMask,
+          opacity,
+          animation: `${animationByDirection[direction]} ${duration}s linear infinite`,
+          animationDelay: `-${delay}s`
+        }
+
+        if (isHorizontal) {
+          css.left = "0"
+          css.right = "0"
+          css.top = "0"
+          css.height = `${randomInteger({ min: 5, max: 26 })}vh`
+        } else if (isVertical) {
+          css.top = "0"
+          css.bottom = "0"
+          css.left = "0"
+          css.width = `${randomInteger({ min: 5, max: 26 })}vw`
+        } else if (isDiagonal) {
+          css.left = "0"
+          css.top = "50vh"
+          css.width = "140vw"
+          css.height = `${randomInteger({ min: 4, max: 18 })}vh`
+          css.transformOrigin = "center"
+        }
+
+        Object.assign(band.style, css)
+        if (isDiagonal) {
+          band.style.setProperty("--rot", `${randomInteger({ min: -34, max: 34 })}deg`)
+        } else {
+          const offsetAxis = isHorizontal ? "--off-x" : "--off-y"
+          band.style.setProperty(offsetAxis, `${randomInteger({ min: -8, max: 8 })}vw`)
+        }
+        noiseOverlay.appendChild(band)
+      }
+    }
+
+    const startNoise = () => {
+      previewStartedAt ||= Date.now()
+      reseedGlitchFilters()
+      buildScanBands()
+      noiseSeedTimer ??= setInterval(() => {
+        grainTurbulence.setAttribute("seed", Math.floor(Math.random() * 1000))
+      }, NoiseSeedInterval)
+    }
+
+    const stopNoise = () => {
+      clearInterval(noiseSeedTimer)
+      noiseSeedTimer = null
+    }
+
+    let previewDismissed = false
+    const dismissPreview = () => {
+      if (previewDismissed) return
+      previewDismissed = true
+      firstLoadInFlight = false
+      const elapsed = Date.now() - (previewStartedAt || Date.now())
+      const wait = Math.max(0, MinPreviewDwellMs - elapsed)
+      setTimeout(() => {
+        noiseOverlay.classList.add("dismissed")
+        noiseOverlay.addEventListener("transitionend", stopNoise, { once: true })
+      }, wait)
+    }
+
     const paused = () => pauseReasons.size > 0
     const randomInteger = ({ min, max }) => Math.floor(Math.random() * (max - min + 1) + min)
     const randomHexColor = () => `#${Math.floor(Math.random() * 16777215).toString(16).padStart(6, "0")}`
@@ -820,8 +1052,10 @@
     const languageLabel = translation =>
       LanguageNames[translation?.languageCode || current.languageCode] || translation?.languageTag || "unknown"
 
-    const translationName = translation =>
-      translation?.title || translation?.abbreviation || "waiting"
+    const translationName = translation => {
+      const title = translation?.title || translation?.abbreviation || "waiting"
+      return translation?.year ? `${title} (${translation.year})` : title
+    }
 
     const translationMeta = translation =>
       [translation?.abbreviation, languageLabel(translation)].filter(Boolean).join(" · ")
@@ -837,7 +1071,8 @@
         languageCode: verse.translation?.languageTag?.split("-")[0] || current.languageCode,
         languageTag: verse.translation?.languageTag || current.languageCode,
         publisherUrl: verse.publisherUrl || verse.translation?.publisherUrl || "",
-        reference: catalogEntry.reference || ""
+        reference: catalogEntry.reference || "",
+        year: catalogEntry.year || ""
       }
     }
 
@@ -986,13 +1221,37 @@
       const image = new Image()
       image.crossOrigin = "anonymous"
 
-      image.onload = () => {
-        record.image = image
-        const nextIndex = backgroundTrail.append(record)
-        if (nextIndex !== null && !paused()) showBackground(nextIndex)
+      // Browsers occasionally leave a stuck <img> request without firing either
+      // load or error — usually a wedged TCP connection to the Wikimedia CDN.
+      // Without this watchdog the page just sits on the noise overlay forever.
+      // First-load is more impatient (4s match the JSON fetch); steady-state
+      // gives the network 30s before bailing.
+      const stallMs = firstLoadInFlight ? FirstLoadFetchTimeoutMs : 30000
+      let settled = false
+      const settle = ok => {
+        if (settled) return
+        settled = true
+        clearTimeout(stallTimer)
+        if (ok) {
+          record.image = image
+          const nextIndex = backgroundTrail.append(record)
+          if (nextIndex !== null && !paused()) showBackground(nextIndex)
+        } else if (!backgroundTrail.hasAny()) {
+          queueRandomWikimediaBackground()
+        }
       }
 
-      image.onerror = error => console.error("Error loading background:", error)
+      const stallTimer = setTimeout(() => {
+        console.warn("Background image stalled, retrying:", record.imageUrl)
+        image.src = "" // abort the in-flight request
+        settle(false)
+      }, stallMs)
+
+      image.onload = () => settle(true)
+      image.onerror = error => {
+        console.error("Error loading background:", record.imageUrl, error)
+        settle(false)
+      }
       image.src = record.imageUrl
     }
 
@@ -1006,6 +1265,7 @@
         backgroundRepeat: "no-repeat"
       })
 
+      dismissPreview()
       quoteBox.dataset.imagePageUrl = current.background.pageUrl
       updateInfoModal()
     }
@@ -1040,7 +1300,7 @@
     }
 
     const randomWikimediaPage = async () => {
-      const data = await json(WikimediaImageUrl)
+      const data = await fetchWithTimeout(WikimediaImageUrl)
 
       return Object.values(data.query?.pages || {})[0]
     }
@@ -1049,7 +1309,9 @@
       try {
         const page = await randomWikimediaPage()
 
-        if (!page?.imageinfo?.[0]) return
+        if (!page?.imageinfo?.[0]) return attempt < MaxImageFetchAttempts
+          ? queueRandomWikimediaBackground(attempt + 1)
+          : undefined
 
         if (audioMediaPage(page)) return !paused() && attempt < MaxImageFetchAttempts
           ? queueRandomWikimediaBackground(attempt + 1)
@@ -1058,12 +1320,15 @@
         preloadBackground(backgroundRecord(page))
       } catch (error) {
         console.error("Error fetching background:", error)
+        if (!backgroundTrail.hasAny() && attempt < MaxImageFetchAttempts) {
+          queueRandomWikimediaBackground(attempt + 1)
+        }
       }
     }
 
     const getVerse = async () => {
       try {
-        const [verse] = await json(BibleUrl)
+        const [verse] = await fetchWithTimeout(BibleUrl)
         showVerse(verse || SampleVerse)
       } catch (error) {
         console.error("Error fetching quote:", error)
@@ -1489,6 +1754,7 @@
     const startRodeo = () => {
       plantCornerFurniture()
       renderKeyLegend()
+      startNoise()
       getVerse()
       queueRandomWikimediaBackground()
       setRandomColors()
