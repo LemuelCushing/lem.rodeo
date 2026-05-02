@@ -1657,7 +1657,10 @@
     // only consulted for the ? help intent, which lives on whatever key
     // produces the literal "?" character.
     const StepCodes = {
-      Comma: -1, Period: 1,
+      Comma: -1, Period: 1
+    }
+
+    const BracketCodes = {
       BracketLeft: -1, BracketRight: 1
     }
 
@@ -1673,11 +1676,18 @@
 
     let heldModifier = null
     let modifierConsumed = false
+    let heldBracket = null
+    let bracketConsumed = false
 
     const releaseModifier = () => {
       heldModifier = null
       modifierConsumed = false
+      heldBracket = null
+      bracketConsumed = false
     }
+
+    const stepBackground = direction =>
+      (direction < 0 ? previousBackground : nextBackground)()
 
     const handleKeydown = event => {
       if (event.key === "Escape" && infoModal.open) {
@@ -1697,9 +1707,30 @@
       const modifier = ModifierCodes[event.code]
       if (modifier && !event.repeat) {
         event.preventDefault()
+        if (heldBracket !== null) {
+          bracketConsumed = true
+            ; (heldBracket < 0 ? modifier.back : modifier.forward)()
+          return
+        }
         if (heldModifier?.id !== modifier.id) {
           heldModifier = modifier
           modifierConsumed = false
+        }
+        return
+      }
+
+      const bracket = BracketCodes[event.code]
+      if (bracket) {
+        event.preventDefault()
+        if (event.repeat) return
+        if (heldModifier) {
+          modifierConsumed = true
+            ; (bracket < 0 ? heldModifier.back : heldModifier.forward)()
+          return
+        }
+        if (heldBracket !== bracket) {
+          heldBracket = bracket
+          bracketConsumed = false
         }
         return
       }
@@ -1712,7 +1743,7 @@
           modifierConsumed = true
             ; (direction < 0 ? heldModifier.back : heldModifier.forward)()
         } else {
-          ; (direction < 0 ? previousBackground : nextBackground)()
+          stepBackground(direction)
         }
         return
       }
@@ -1726,11 +1757,21 @@
 
     const handleKeyup = event => {
       const modifier = ModifierCodes[event.code]
-      if (!modifier || heldModifier?.id !== modifier.id) return
+      if (modifier && heldModifier?.id === modifier.id) {
+        const used = modifierConsumed
+        heldModifier = null
+        modifierConsumed = false
+        if (!used) modifier.forward()
+        return
+      }
 
-      const used = modifierConsumed
-      releaseModifier()
-      if (!used) modifier.forward()
+      const bracket = BracketCodes[event.code]
+      if (bracket && heldBracket === bracket) {
+        const used = bracketConsumed
+        heldBracket = null
+        bracketConsumed = false
+        if (!used) stepBackground(bracket)
+      }
     }
 
     infoModalClose.addEventListener("click", closeInfoModal)
