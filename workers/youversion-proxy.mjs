@@ -40,7 +40,12 @@ export default {
 
     if (url.pathname === "/api/log/popup") {
       if (request.method !== "POST") return errorResponse(request, env, 405, "POST only")
-      return logPopupOpen(request, env, context)
+      return logEvent("popup", request, env, context)
+    }
+
+    if (url.pathname === "/api/log/download") {
+      if (request.method !== "POST") return errorResponse(request, env, 405, "POST only")
+      return logEvent("download", request, env, context)
     }
 
     if (request.method !== "GET") return errorResponse(request, env, 405, "GET only")
@@ -298,7 +303,15 @@ function compactText(text) {
   return (text || "").replace(/\s+/g, " ").trim()
 }
 
-async function logPopupOpen(request, env, context) {
+const EventVariants = {
+  popup:    { consoleLabel: "popup-open", ntfyTag: "popcorn",    fallbackTitle: "lem.rodeo" },
+  download: { consoleLabel: "download",   ntfyTag: "arrow_down", fallbackTitle: "lem.rodeo download" }
+}
+
+async function logEvent(kind, request, env, context) {
+  const variant = EventVariants[kind]
+  if (!variant) return errorResponse(request, env, 400, "unknown event kind")
+
   let payload = {}
   try {
     const text = await request.text()
@@ -309,6 +322,7 @@ async function logPopupOpen(request, env, context) {
   const userAgent = request.headers.get("User-Agent") || ""
 
   const fields = {
+    kind,
     citation: String(payload.citation || ""),
     translation: String(payload.translation || ""),
     language: String(payload.language || ""),
@@ -328,7 +342,7 @@ async function logPopupOpen(request, env, context) {
     dpr: Number(payload.dpr) || 0
   }
 
-  if (env.POPUP_LOG?.writeDataPoint) {
+  if (kind === "popup" && env.POPUP_LOG?.writeDataPoint) {
     try {
       env.POPUP_LOG.writeDataPoint({
         indexes: [fields.citation.slice(0, 96)],
@@ -345,10 +359,10 @@ async function logPopupOpen(request, env, context) {
     }
   }
 
-  console.log("popup-open", JSON.stringify(fields))
+  console.log(variant.consoleLabel, JSON.stringify(fields))
 
   if (env.NTFY_TOPIC) {
-    const title = fields.citation || "lem.rodeo"
+    const title = fields.citation || variant.fallbackTitle
     const where = [fields.city, fields.country].filter(Boolean).join(", ")
     const body = [
       `${fields.translation || "?"} · ${fields.language || "?"}`,
@@ -364,7 +378,7 @@ async function logPopupOpen(request, env, context) {
           topic: env.NTFY_TOPIC,
           title,
           message: body,
-          tags: ["popcorn"],
+          tags: [variant.ntfyTag],
           click: fields.pageUrl || "https://lem.rodeo"
         })
       }).catch(error => console.warn("ntfy push failed:", error.message))

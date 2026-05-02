@@ -1180,7 +1180,7 @@
       logPopupOpen()
     }
 
-    const logPopupOpen = () => {
+    const logEvent = path => {
       try {
         const payload = JSON.stringify({
           citation: current.citation,
@@ -1195,9 +1195,12 @@
           viewportH: innerHeight,
           dpr: devicePixelRatio
         })
-        navigator.sendBeacon("/api/log/popup", new Blob([payload], { type: "application/json" }))
+        navigator.sendBeacon(path, new Blob([payload], { type: "application/json" }))
       } catch {}
     }
+
+    const logPopupOpen = () => logEvent("/api/log/popup")
+    const logDownload = () => logEvent("/api/log/download")
 
     const closeInfoModal = () => {
       if (infoModal.open) infoModal.close()
@@ -1342,6 +1345,7 @@
       link.style.display = "none"
       document.body.append(link)
       link.click()
+      logDownload()
 
       setTimeout(() => {
         link.remove()
